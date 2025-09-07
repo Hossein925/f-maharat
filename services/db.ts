@@ -68,8 +68,8 @@ export const deleteHospitalById = async (hospitalId: string) => {
 
 // FIX: Add findUser function to handle authentication logic.
 // --- Authentication ---
-const ADMIN_NATIONAL_ID = import.meta.env.VITE_ADMIN_NATIONAL_ID || 'admin';
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin';
+const ADMIN_NATIONAL_ID = import.meta.env.VITE_ADMIN_NATIONAL_ID || '5850008985';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || '64546';
 
 export const findUser = (hospitals: Hospital[], nationalId: string, password: string): LoggedInUser | null => {
     // 1. Check for Admin

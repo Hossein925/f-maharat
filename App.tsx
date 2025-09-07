@@ -841,40 +841,42 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
-        <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-sm">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  {(loggedInUser && appScreen === AppScreen.MainApp) && (
-                      <button onClick={handleBack} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
-                        <BackIcon className="w-6 h-6"/>
-                      </button>
-                  )}
-                  <h1 className="text-xl font-bold">سامانه مهارت</h1>
-                </div>
+        {appScreen !== AppScreen.Welcome && (
+            <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-sm">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                      {(loggedInUser && appScreen === AppScreen.MainApp) && (
+                          <button onClick={handleBack} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                            <BackIcon className="w-6 h-6"/>
+                          </button>
+                      )}
+                      <h1 className="text-xl font-bold">سامانه مهارت</h1>
+                    </div>
 
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="About"><InfoIcon className="w-6 h-6"/></button>
-                    {loggedInUser?.role === UserRole.Admin && (
-                        <>
-                            <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Save Backup"><SaveIcon className="w-6 h-6"/></button>
-                            <label className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer" aria-label="Load Backup">
-                                <UploadIcon className="w-6 h-6"/>
-                                <input type="file" accept=".json" onChange={handleLoadData} className="hidden"/>
-                            </label>
-                        </>
-                    )}
-                    {loggedInUser ? (
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold hidden sm:inline">خوش آمدید، {loggedInUser.name}</span>
-                            <button onClick={handleLogout} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Logout"><LogoutIcon className="w-6 h-6"/></button>
-                        </div>
-                    ) : (
-                        <button onClick={() => setIsLoginModalOpen(true)} className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">ورود</button>
-                    )}
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="About"><InfoIcon className="w-6 h-6"/></button>
+                        {loggedInUser?.role === UserRole.Admin && (
+                            <>
+                                <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Save Backup"><SaveIcon className="w-6 h-6"/></button>
+                                <label className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer" aria-label="Load Backup">
+                                    <UploadIcon className="w-6 h-6"/>
+                                    <input type="file" accept=".json" onChange={handleLoadData} className="hidden"/>
+                                </label>
+                            </>
+                        )}
+                        {loggedInUser ? (
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm font-semibold hidden sm:inline">خوش آمدید، {loggedInUser.name}</span>
+                                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Logout"><LogoutIcon className="w-6 h-6"/></button>
+                            </div>
+                        ) : (
+                            <button onClick={() => setIsLoginModalOpen(true)} className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">ورود</button>
+                        )}
+                    </div>
                 </div>
-            </div>
-        </header>
-        <main className="container mx-auto">
+            </header>
+        )}
+        <main className={appScreen === AppScreen.Welcome ? '' : 'container mx-auto'}>
           {renderContent()}
         </main>
         <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
