@@ -14,11 +14,11 @@ import PatientEducationManager from './components/PatientEducationManager';
 import PatientPortalView from './components/PatientPortalView';
 import AboutModal from './components/AboutModal';
 import LoginModal from './components/LoginModal';
-import { SaveIcon } from './icons/SaveIcon';
-import { UploadIcon } from './icons/UploadIcon';
-import { InfoIcon } from './icons/InfoIcon';
-import { LogoutIcon } from './icons/LogoutIcon';
-import { BackIcon } from './icons/BackIcon';
+import { SaveIcon } from './components/icons/SaveIcon';
+import { UploadIcon } from './components/icons/UploadIcon';
+import { InfoIcon } from './components/icons/InfoIcon';
+import { LogoutIcon } from './components/icons/LogoutIcon';
+import { BackIcon } from './components/icons/BackIcon';
 import * as db from './services/db';
 import AdminCommunicationView from './components/AdminCommunicationView';
 import HospitalCommunicationView from './components/HospitalCommunicationView';
@@ -692,6 +692,7 @@ const App: React.FC = () => {
     if (currentView === View.PatientPortal && loggedInUser?.role === UserRole.Patient) {
         const patientHospital = findHospital(loggedInUser.hospitalId!);
         const patientDepartment = findDepartment(patientHospital, loggedInUser.departmentId!);
+        // FIX: Look for patient in `patients` array instead of `staff` array.
         const patientSelf = patientDepartment?.patients?.find(p => p.id === loggedInUser.patientId!);
         
         if (patientDepartment && patientSelf) {
