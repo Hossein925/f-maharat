@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Department, StaffMember, SkillCategory, Assessment, NamedChecklistTemplate, ExamTemplate, Question, QuestionType, ExamSubmission, ExamAnswer, UserRole, MonthlyTraining, TrainingMaterial, NewsBanner, MonthlyNeedsAssessment } from '../types';
@@ -572,7 +574,7 @@ const StaffMemberView: React.FC<StaffMemberViewProps> = ({
                                 <ResponsiveContainer width="100%" height={300}>
                                     <LineChart data={progressChartInfo.data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="5 5" stroke="rgba(100, 116, 139, 0.3)" />
-                                        <XAxis dataKey="name" tick={{ fill: 'currentColor', fontSize: 12 }} className="text-slate-500 dark:text-slate-400" />
+                                        <XAxis dataKey="name" tick={{ fill: 'currentColor', fontSize: 12 }} className="text-slate-500 dark:text-slate-400" padding={{ left: 20, right: 20 }} />
                                         <YAxis unit="%" domain={[0, 100]} tick={{ fill: 'currentColor', fontSize: 12 }} className="text-slate-500 dark:text-slate-400" />
                                         <Tooltip
                                             cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '5 5' }}

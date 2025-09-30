@@ -1,10 +1,9 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import Dexie, { Table } from 'dexie';
-// FIX: Import LoggedInUser and UserRole to be used in the new findUser function.
 import { Hospital, LoggedInUser, TrainingMaterial, UserRole } from '../types';
 
-const supabaseUrl = 'https://mafgyafugqazpnnvlrls.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hZmd5YWZ1Z3FhenBubnZscmxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNzU2NTcsImV4cCI6MjA3Mjg1MTY1N30.eo_qHukJ9DhQyvrL9WJvgDaxLRNQzae7Q0jJgZaoXXA';
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || 'https://mafgyafugqazpnnvlrls.supabase.co';
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hZmd5YWZ1Z3FhenBubnZscmxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNzU2NTcsImV4cCI6MjA3Mjg1MTY1N30.eo_qHukJ9DhQyvrL9WJvgDaxLRNQzae7Q0jJgZaoXXA';
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -14,10 +13,7 @@ class AppDatabase extends Dexie {
 
   constructor() {
     super('SkillAssessmentDB_v2');
-    // FIX: The error "Property 'version' does not exist" is likely a TypeScript/compiler-specific issue
-    // with recognizing inherited methods in this context. Casting `this` to Dexie is a robust
-    // workaround that clarifies the type to the compiler without changing runtime behavior.
-    (this as Dexie).version(1).stores({
+    this.version(1).stores({
       hospitals: 'id',
       files: 'id',
     });
@@ -66,10 +62,9 @@ export const deleteHospitalById = async (hospitalId: string) => {
     }
 }
 
-// FIX: Add findUser function to handle authentication logic.
 // --- Authentication ---
-const ADMIN_NATIONAL_ID = import.meta.env.VITE_ADMIN_NATIONAL_ID || '5850008985';
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || '64546';
+const ADMIN_NATIONAL_ID = (import.meta as any).env.VITE_ADMIN_NATIONAL_ID || '5850008985';
+const ADMIN_PASSWORD = (import.meta as any).env.VITE_ADMIN_PASSWORD || '64546';
 
 export const findUser = (hospitals: Hospital[], nationalId: string, password: string): LoggedInUser | null => {
     // 1. Check for Admin

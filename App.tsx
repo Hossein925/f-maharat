@@ -60,15 +60,19 @@ const App: React.FC = () => {
   useEffect(() => {
     const initializeData = async () => {
         setIsLoading(true);
+        // Load local data first for a snappy UI, then sync with remote.
         const localData = await db.getLocalHospitals();
         setHospitals(localData);
+        console.log("Local data loaded. Syncing with Supabase...");
         const remoteData = await db.syncHospitalsWithSupabase();
         setHospitals(remoteData);
+        console.log("Sync complete.");
         setIsLoading(false);
     };
     initializeData();
 
     const unsubscribe = db.onHospitalsChange((updatedHospitals) => {
+        console.log("Real-time update received. Refreshing data.");
         setHospitals(updatedHospitals);
     });
 
@@ -92,15 +96,6 @@ const App: React.FC = () => {
   };
   
   const allAvailableYears = getAvailableYears(hospitals);
-
-  const withHospitalUpdate = (callback: (hospitals: Hospital[]) => Hospital[]) => {
-    const updatedHospitals = callback([...hospitals]);
-    const updatedHospital = updatedHospitals.find(h => h.id === selectedHospitalId);
-    if (updatedHospital) {
-        db.upsertHospital(updatedHospital);
-    }
-    setHospitals(updatedHospitals);
-  };
   
   const handleGoToWelcome = () => {
     setAppScreen(AppScreen.Welcome);
@@ -177,8 +172,16 @@ const App: React.FC = () => {
   };
 
   const handleBack = () => {
+    if (!loggedInUser) {
+        handleLogout();
+        return;
+    }
     switch (currentView) {
       case View.StaffMemberView:
+        if (loggedInUser.role === UserRole.Staff) {
+            handleLogout();
+            return;
+        }
         setSelectedStaffId(null);
         setCurrentView(View.DepartmentView);
         break;
@@ -189,6 +192,13 @@ const App: React.FC = () => {
         setCurrentView(View.DepartmentView);
         break;
       case View.DepartmentView:
+        if (loggedInUser.role === UserRole.Manager) {
+            handleLogout();
+            return;
+        }
+        setSelectedDepartmentId(null);
+        setCurrentView(View.DepartmentList);
+        break;
       case View.AccreditationManager:
       case View.NewsBannerManager:
       case View.HospitalCommunication:
@@ -198,8 +208,12 @@ const App: React.FC = () => {
         setCurrentView(View.DepartmentList);
         break;
       case View.DepartmentList:
+         if (loggedInUser.role === UserRole.Supervisor) {
+            handleLogout();
+            return;
+        }
         setSelectedHospitalId(null);
-        if (loggedInUser?.role === UserRole.Admin) {
+        if (loggedInUser.role === UserRole.Admin) {
             setAppScreen(AppScreen.HospitalList);
         } else {
             handleLogout();
@@ -208,38 +222,52 @@ const App: React.FC = () => {
     }
   };
 
+  const updateAndSyncHospital = (hospitalId: string, updateFn: (hospital: Hospital) => Hospital) => {
+    const updatedHospitals = hospitals.map(h => {
+        if (h.id === hospitalId) {
+            // Use a deep copy to ensure we trigger re-renders and don't mutate state directly
+            const hospitalToUpdate = JSON.parse(JSON.stringify(h));
+            return updateFn(hospitalToUpdate);
+        }
+        return h;
+    });
+    setHospitals(updatedHospitals);
+
+    const hospitalToSync = updatedHospitals.find(h => h.id === hospitalId);
+    if (hospitalToSync) {
+        db.upsertHospital(hospitalToSync);
+    }
+  };
+
   // --- Year Archiving ---
   const handleArchiveYear = (yearToArchive: number) => {
-    withHospitalUpdate(currentHospitals => 
-      currentHospitals.map(h => {
-          if (h.id !== selectedHospitalId) return h;
-          const hospital = JSON.parse(JSON.stringify(h));
-          hospital.departments.forEach((department: Department) => {
-              department.staff.forEach((staff: StaffMember) => {
-                  staff.assessments.forEach((assessment: Assessment) => {
-                      if (assessment.year === undefined || assessment.year === null) {
-                          assessment.year = yearToArchive;
-                      }
-                  });
-                  if (staff.workLogs) {
-                      staff.workLogs.forEach((workLog: MonthlyWorkLog) => {
-                           if (workLog.year === undefined || workLog.year === null) {
-                              workLog.year = yearToArchive;
-                          }
-                      });
-                  }
-              });
-          });
-          if (hospital.needsAssessments) {
-               hospital.needsAssessments.forEach((na: MonthlyNeedsAssessment) => {
-                  if (na.year === undefined || na.year === null) {
-                      na.year = yearToArchive;
-                  }
-              });
-          }
-          return hospital;
-      })
-    );
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, (hospital) => {
+        hospital.departments.forEach((department: Department) => {
+            department.staff.forEach((staff: StaffMember) => {
+                staff.assessments.forEach((assessment: Assessment) => {
+                    if (assessment.year === undefined || assessment.year === null) {
+                        assessment.year = yearToArchive;
+                    }
+                });
+                if (staff.workLogs) {
+                    staff.workLogs.forEach((workLog: MonthlyWorkLog) => {
+                         if (workLog.year === undefined || workLog.year === null) {
+                            workLog.year = yearToArchive;
+                        }
+                    });
+                }
+            });
+        });
+        if (hospital.needsAssessments) {
+             hospital.needsAssessments.forEach((na: MonthlyNeedsAssessment) => {
+                if (na.year === undefined || na.year === null) {
+                    na.year = yearToArchive;
+                }
+            });
+        }
+        return hospital;
+    });
     setActiveYear(yearToArchive + 1);
   };
 
@@ -257,7 +285,9 @@ const App: React.FC = () => {
   const handleUpdateHospital = (id: string, updatedData: Partial<Omit<Hospital, 'id' | 'departments'>>) => {
       const hospital = findHospital(id);
       if (hospital) {
-          db.upsertHospital({ ...hospital, ...updatedData });
+          const updatedHospital = { ...hospital, ...updatedData };
+          db.upsertHospital(updatedHospital);
+          setHospitals(hospitals.map(h => h.id === id ? updatedHospital : h));
       }
   }
 
@@ -266,122 +296,136 @@ const App: React.FC = () => {
     setHospitals(hospitals.filter(h => h.id !== id));
   };
   
-  const createUpdater = (updateLogic: (h: Hospital) => Hospital) => {
-    withHospitalUpdate(hs => hs.map(h => h.id === selectedHospitalId ? updateLogic(h) : h));
-  };
-
   const handleAddDepartment = (name: string, managerName: string, managerNationalId: string, managerPassword: string, staffCount: number, bedCount: number) => {
+    if (!selectedHospitalId) return;
     const newDepartment: Department = { id: Date.now().toString(), name, managerName, managerNationalId, managerPassword, staffCount, bedCount, staff: [] };
-    createUpdater(h => ({ ...h, departments: [...h.departments, newDepartment] }));
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        hospital.departments.push(newDepartment);
+        return hospital;
+    });
   };
 
   const handleUpdateDepartment = (id: string, updatedData: Partial<Omit<Department, 'id' | 'staff'>>) => {
-    createUpdater(h => ({ ...h, departments: h.departments.map(d => d.id === id ? { ...d, ...updatedData } : d)}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        hospital.departments = hospital.departments.map(d => d.id === id ? { ...d, ...updatedData } : d);
+        return hospital;
+    });
   }
 
   const handleDeleteDepartment = (id: string) => {
-    createUpdater(h => ({ ...h, departments: h.departments.filter(d => d.id !== id) }));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        hospital.departments = hospital.departments.filter(d => d.id !== id);
+        return hospital;
+    });
   };
   
   const handleAddStaff = (departmentId: string, name: string, title: string, nationalId: string, password?: string) => {
+    if (!selectedHospitalId) return;
     const newStaff: StaffMember = { id: Date.now().toString(), name, title, nationalId, password, assessments: [] };
-    createUpdater(h => ({ ...h, departments: h.departments.map(d => d.id === departmentId ? { ...d, staff: [...d.staff, newStaff] } : d)}));
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department) department.staff.push(newStaff);
+        return hospital;
+    });
   };
 
   const handleUpdateStaff = (departmentId: string, staffId: string, updatedData: Partial<Omit<StaffMember, 'id' | 'assessments'>>) => {
-    createUpdater(h => ({ ...h, departments: h.departments.map(d => {
-        if (d.id !== departmentId) return d;
-        return { ...d, staff: d.staff.map(s => s.id === staffId ? { ...s, ...updatedData } : s)};
-    })}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department) {
+            department.staff = department.staff.map(s => s.id === staffId ? { ...s, ...updatedData } : s);
+        }
+        return hospital;
+    });
   };
 
   const handleDeleteStaff = (departmentId: string, staffId: string) => {
-      createUpdater(h => ({...h, departments: h.departments.map(d => 
-        d.id === departmentId ? { ...d, staff: d.staff.filter(s => s.id !== staffId) } : d
-      )}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department) {
+            department.staff = department.staff.filter(s => s.id !== staffId);
+        }
+        return hospital;
+    });
   };
 
    const handleAddOrUpdateAssessment = (departmentId: string, staffId: string, month: string, year: number, skills: SkillCategory[], template?: Partial<NamedChecklistTemplate>) => {
-      createUpdater(h => ({...h, departments: h.departments.map(d => {
-        if (d.id !== departmentId) return d;
-        return {...d, staff: d.staff.map(s => {
-          if (s.id !== staffId) return s;
-          const existingAssessmentIndex = s.assessments.findIndex(a => a.month === month && a.year === year);
-          const newAssessment: Assessment = {
-            id: existingAssessmentIndex > -1 ? s.assessments[existingAssessmentIndex].id : Date.now().toString(),
-            month, year, skillCategories: skills,
-            supervisorMessage: existingAssessmentIndex > -1 ? s.assessments[existingAssessmentIndex].supervisorMessage : '',
-            managerMessage: existingAssessmentIndex > -1 ? s.assessments[existingAssessmentIndex].managerMessage : '',
-            templateId: template?.id, minScore: template?.minScore, maxScore: template?.maxScore,
-            examSubmissions: existingAssessmentIndex > -1 ? s.assessments[existingAssessmentIndex].examSubmissions : [],
-          };
-          const updatedAssessments = [...s.assessments];
-          if (existingAssessmentIndex > -1) {
-            updatedAssessments[existingAssessmentIndex] = newAssessment;
-          } else {
-            updatedAssessments.push(newAssessment);
-          }
-          return { ...s, assessments: updatedAssessments };
-        })}
-      })}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        const staff = department?.staff.find(s => s.id === staffId);
+        if (staff) {
+            const existingIdx = staff.assessments.findIndex(a => a.month === month && a.year === year);
+            const newAssessment: Assessment = {
+                id: existingIdx > -1 ? staff.assessments[existingIdx].id : Date.now().toString(),
+                month, year, skillCategories: skills,
+                supervisorMessage: existingIdx > -1 ? staff.assessments[existingIdx].supervisorMessage : '',
+                managerMessage: existingIdx > -1 ? staff.assessments[existingIdx].managerMessage : '',
+                templateId: template?.id, minScore: template?.minScore, maxScore: template?.maxScore,
+                examSubmissions: existingIdx > -1 ? staff.assessments[existingIdx].examSubmissions : [],
+            };
+            if (existingIdx > -1) staff.assessments[existingIdx] = newAssessment;
+            else staff.assessments.push(newAssessment);
+        }
+        return hospital;
+    });
   };
   
   const handleUpdateAssessmentMessages = (departmentId: string, staffId: string, month: string, year: number, messages: { supervisorMessage: string; managerMessage: string; }) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => {
-      if (d.id !== departmentId) return d;
-      return {...d, staff: d.staff.map(s => {
-        if (s.id !== staffId) return s;
-        return {...s, assessments: s.assessments.map(a => (a.month === month && a.year === year) ? {...a, ...messages} : a)}
-      })}
-    })}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        const staff = department?.staff.find(s => s.id === staffId);
+        if (staff) {
+            const assessment = staff.assessments.find(a => a.month === month && a.year === year);
+            if (assessment) Object.assign(assessment, messages);
+        }
+        return hospital;
+    });
   };
 
   const handleSubmitExam = (departmentId: string, staffId: string, month: string, year: number, submission: ExamSubmission) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => {
-      if (d.id !== departmentId) return d;
-      return {...d, staff: d.staff.map(s => {
-        if (s.id !== staffId) return s;
-        const assessmentIndex = s.assessments.findIndex(a => a.month === month && a.year === year);
-        if (assessmentIndex === -1) {
-            const newAssessment: Assessment = {
-              id: Date.now().toString(), month, year, skillCategories: [], examSubmissions: [submission]
-            };
-            return { ...s, assessments: [...s.assessments, newAssessment] };
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        const staff = department?.staff.find(s => s.id === staffId);
+        if (staff) {
+            let assessment = staff.assessments.find(a => a.month === month && a.year === year);
+            if (!assessment) {
+                assessment = { id: Date.now().toString(), month, year, skillCategories: [], examSubmissions: [] };
+                staff.assessments.push(assessment);
+            }
+            if (!assessment.examSubmissions) assessment.examSubmissions = [];
+            const existingSubIdx = assessment.examSubmissions.findIndex(s => s.examTemplateId === submission.examTemplateId);
+            if (existingSubIdx > -1) assessment.examSubmissions[existingSubIdx] = submission;
+            else assessment.examSubmissions.push(submission);
         }
-
-        const updatedAssessments = [...s.assessments];
-        const targetAssessment = { ...updatedAssessments[assessmentIndex] };
-        targetAssessment.examSubmissions = targetAssessment.examSubmissions || [];
-        const existingSubmissionIndex = targetAssessment.examSubmissions.findIndex(sub => sub.examTemplateId === submission.examTemplateId);
-        if (existingSubmissionIndex > -1) {
-          targetAssessment.examSubmissions[existingSubmissionIndex] = submission;
-        } else {
-          targetAssessment.examSubmissions.push(submission);
-        }
-        updatedAssessments[assessmentIndex] = targetAssessment;
-        return { ...s, assessments: updatedAssessments };
-      })}
-    })}));
+        return hospital;
+    });
   };
 
   const handleAddOrUpdateWorkLog = (departmentId: string, staffId: string, workLog: MonthlyWorkLog) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => {
-      if (d.id !== departmentId) return d;
-      return {...d, staff: d.staff.map(s => {
-        if (s.id !== staffId) return s;
-        const staffCopy = JSON.parse(JSON.stringify(s));
-        if (!staffCopy.workLogs) staffCopy.workLogs = [];
-        const logIndex = staffCopy.workLogs.findIndex((l: MonthlyWorkLog) => l.month === workLog.month && l.year === workLog.year);
-        if (logIndex > -1) staffCopy.workLogs[logIndex] = workLog;
-        else staffCopy.workLogs.push(workLog);
-        return staffCopy;
-      })}
-    })}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        const staff = department?.staff.find(s => s.id === staffId);
+        if (staff) {
+            if (!staff.workLogs) staff.workLogs = [];
+            const logIndex = staff.workLogs.findIndex(l => l.month === workLog.month && l.year === workLog.year);
+            if (logIndex > -1) staff.workLogs[logIndex] = workLog;
+            else staff.workLogs.push(workLog);
+        }
+        return hospital;
+    });
   };
 
   const handleComprehensiveImport = (departmentId: string, data: { [staffName: string]: Map<string, SkillCategory[]> }) => {
-    createUpdater(h => {
-        const hospital = JSON.parse(JSON.stringify(h));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
         const department = hospital.departments.find((d: Department) => d.id === departmentId);
         if (!department) return hospital;
 
@@ -416,156 +460,242 @@ const App: React.FC = () => {
   };
 
   const handleAddOrUpdateChecklistTemplate = (template: NamedChecklistTemplate) => {
-    createUpdater(h => {
-      const templates = h.checklistTemplates ? [...h.checklistTemplates] : [];
-      const index = templates.findIndex(t => t.id === template.id);
-      if (index > -1) templates[index] = template;
-      else templates.push(template);
-      return { ...h, checklistTemplates: templates };
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (!hospital.checklistTemplates) hospital.checklistTemplates = [];
+        const index = hospital.checklistTemplates.findIndex(t => t.id === template.id);
+        if (index > -1) hospital.checklistTemplates[index] = template;
+        else hospital.checklistTemplates.push(template);
+        return hospital;
     });
   };
 
   const handleDeleteChecklistTemplate = (templateId: string) => {
-    createUpdater(h => ({...h, checklistTemplates: (h.checklistTemplates || []).filter(t => t.id !== templateId)}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (hospital.checklistTemplates) {
+            hospital.checklistTemplates = hospital.checklistTemplates.filter(t => t.id !== templateId);
+        }
+        return hospital;
+    });
   };
 
   const handleAddOrUpdateExamTemplate = (template: ExamTemplate) => {
-    createUpdater(h => {
-      const templates = h.examTemplates ? [...h.examTemplates] : [];
-      const index = templates.findIndex(t => t.id === template.id);
-      if (index > -1) templates[index] = template;
-      else templates.push(template);
-      return { ...h, examTemplates: templates };
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (!hospital.examTemplates) hospital.examTemplates = [];
+        const index = hospital.examTemplates.findIndex(t => t.id === template.id);
+        if (index > -1) hospital.examTemplates[index] = template;
+        else hospital.examTemplates.push(template);
+        return hospital;
     });
   };
 
   const handleDeleteExamTemplate = (templateId: string) => {
-    createUpdater(h => ({...h, examTemplates: (h.examTemplates || []).filter(t => t.id !== templateId)}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (hospital.examTemplates) {
+            hospital.examTemplates = hospital.examTemplates.filter(t => t.id !== templateId);
+        }
+        return hospital;
+    });
   };
 
   const handleAddTrainingMaterial = (month: string, material: TrainingMaterial) => {
-    createUpdater(h => {
-      const hospitalCopy = JSON.parse(JSON.stringify(h));
-      if (!hospitalCopy.trainingMaterials) hospitalCopy.trainingMaterials = [];
-      let monthTraining = hospitalCopy.trainingMaterials.find((t: MonthlyTraining) => t.month === month);
-      if (monthTraining) {
-        monthTraining.materials.push(material);
-      } else {
-        hospitalCopy.trainingMaterials.push({ month, materials: [material] });
-      }
-      return hospitalCopy;
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (!hospital.trainingMaterials) hospital.trainingMaterials = [];
+        let monthTraining = hospital.trainingMaterials.find(t => t.month === month);
+        if (monthTraining) {
+            monthTraining.materials.push(material);
+        } else {
+            hospital.trainingMaterials.push({ month, materials: [material] });
+        }
+        return hospital;
     });
   };
 
   const handleDeleteTrainingMaterial = (month: string, materialId: string) => {
-    createUpdater(h => {
-      if (!h.trainingMaterials) return h;
-      return {...h, trainingMaterials: h.trainingMaterials.map(t => 
-        t.month === month ? {...t, materials: t.materials.filter(m => m.id !== materialId)} : t
-      )};
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (hospital.trainingMaterials) {
+            const monthTraining = hospital.trainingMaterials.find(t => t.month === month);
+            if (monthTraining) {
+                monthTraining.materials = monthTraining.materials.filter(m => m.id !== materialId);
+            }
+        }
+        return hospital;
     });
   };
 
   const handleUpdateTrainingMaterialDescription = (month: string, materialId: string, description: string) => {
-    createUpdater(h => {
-      if (!h.trainingMaterials) return h;
-      return {...h, trainingMaterials: h.trainingMaterials.map(t => 
-        t.month === month ? {...t, materials: t.materials.map(m => m.id === materialId ? {...m, description} : m)} : t
-      )};
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (hospital.trainingMaterials) {
+            const monthTraining = hospital.trainingMaterials.find(t => t.month === month);
+            const material = monthTraining?.materials.find(m => m.id === materialId);
+            if (material) material.description = description;
+        }
+        return hospital;
     });
   };
   
   const handleAddAccreditationMaterial = (material: TrainingMaterial) => {
-    createUpdater(h => ({...h, accreditationMaterials: [...(h.accreditationMaterials || []), material]}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (!hospital.accreditationMaterials) hospital.accreditationMaterials = [];
+        hospital.accreditationMaterials.push(material);
+        return hospital;
+    });
   };
 
   const handleDeleteAccreditationMaterial = (materialId: string) => {
-    createUpdater(h => ({...h, accreditationMaterials: (h.accreditationMaterials || []).filter(m => m.id !== materialId)}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (hospital.accreditationMaterials) {
+            hospital.accreditationMaterials = hospital.accreditationMaterials.filter(m => m.id !== materialId);
+        }
+        return hospital;
+    });
   };
 
   const handleUpdateAccreditationMaterialDescription = (materialId: string, description: string) => {
-    createUpdater(h => ({...h, accreditationMaterials: (h.accreditationMaterials || []).map(m => m.id === materialId ? {...m, description} : m)}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const material = hospital.accreditationMaterials?.find(m => m.id === materialId);
+        if (material) material.description = description;
+        return hospital;
+    });
   };
   
-  const handleAddNewsBanner = async (banner: Omit<NewsBanner, 'id' | 'imageId'>, imageData: string) => {
-    const imageId = await db.addMaterial({ id: Date.now().toString(), data: imageData, name: `banner_${banner.title.replace(/\s+/g, '_')}.jpg`, type: 'image/jpeg' });
-    const newBanner: NewsBanner = { ...banner, id: Date.now().toString(), imageId };
-    createUpdater(h => ({...h, newsBanners: [...(h.newsBanners || []), newBanner]}));
+  const handleAddNewsBanner = async (banner: Omit<NewsBanner, 'id' | 'imageId'>, file: File, imageData: string) => {
+    if (!selectedHospitalId) return;
+    try {
+        const imageId = await db.addMaterial({ 
+            id: Date.now().toString(), 
+            data: imageData, 
+            name: file.name, 
+            type: file.type 
+        });
+        const newBanner: NewsBanner = { ...banner, id: Date.now().toString(), imageId };
+        updateAndSyncHospital(selectedHospitalId, hospital => {
+            if (!hospital.newsBanners) hospital.newsBanners = [];
+            hospital.newsBanners.push(newBanner);
+            return hospital;
+        });
+    } catch (error) {
+        console.error("Failed to add news banner:", error);
+        alert("خطا در بارگذاری بنر خبری. لطفاً اتصال اینترنت خود را بررسی کرده و دوباره تلاش کنید.");
+    }
   };
 
   const handleUpdateNewsBanner = (bannerId: string, title: string, description: string) => {
-    createUpdater(h => ({...h, newsBanners: (h.newsBanners || []).map(b => b.id === bannerId ? {...b, title, description} : b)}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const banner = hospital.newsBanners?.find(b => b.id === bannerId);
+        if (banner) {
+            banner.title = title;
+            banner.description = description;
+        }
+        return hospital;
+    });
   };
 
   const handleDeleteNewsBanner = (bannerId: string) => {
+    if (!selectedHospitalId) return;
     const banner = findHospital(selectedHospitalId)?.newsBanners?.find(b => b.id === bannerId);
     if (banner) db.deleteMaterial(banner.imageId);
-    createUpdater(h => ({...h, newsBanners: (h.newsBanners || []).filter(b => b.id !== bannerId)}));
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        if (hospital.newsBanners) {
+            hospital.newsBanners = hospital.newsBanners.filter(b => b.id !== bannerId);
+        }
+        return hospital;
+    });
   };
 
   const handleAddPatient = (departmentId: string, name: string, nationalId: string, password?: string) => {
+    if (!selectedHospitalId) return;
     const newPatient: Patient = { id: Date.now().toString(), name, nationalId, password, chatHistory: [] };
-    createUpdater(h => ({...h, departments: h.departments.map(d => {
-      if (d.id !== departmentId) return d;
-      const patients = d.patients ? [...d.patients, newPatient] : [newPatient];
-      return {...d, patients };
-    })}));
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department) {
+            if (!department.patients) department.patients = [];
+            department.patients.push(newPatient);
+        }
+        return hospital;
+    });
   };
 
   const handleDeletePatient = (departmentId: string, patientId: string) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => 
-      d.id === departmentId ? {...d, patients: (d.patients || []).filter(p => p.id !== patientId)} : d
-    )}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department?.patients) {
+            department.patients = department.patients.filter(p => p.id !== patientId);
+        }
+        return hospital;
+    });
   };
 
   const handleAddPatientEducationMaterial = (departmentId: string, material: TrainingMaterial) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => {
-      if (d.id !== departmentId) return d;
-      const materials = d.patientEducationMaterials ? [...d.patientEducationMaterials, material] : [material];
-      return {...d, patientEducationMaterials: materials };
-    })}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department) {
+            if (!department.patientEducationMaterials) department.patientEducationMaterials = [];
+            department.patientEducationMaterials.push(material);
+        }
+        return hospital;
+    });
   };
 
   const handleDeletePatientEducationMaterial = (departmentId: string, materialId: string) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => 
-      d.id === departmentId ? {...d, patientEducationMaterials: (d.patientEducationMaterials || []).filter(m => m.id !== materialId)} : d
-    )}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        if (department?.patientEducationMaterials) {
+            department.patientEducationMaterials = department.patientEducationMaterials.filter(m => m.id !== materialId);
+        }
+        return hospital;
+    });
   };
 
   const handleUpdatePatientEducationMaterialDescription = (departmentId: string, materialId: string, description: string) => {
-    createUpdater(h => ({...h, departments: h.departments.map(d => 
-      d.id === departmentId ? {...d, patientEducationMaterials: (d.patientEducationMaterials || []).map(m => m.id === materialId ? {...m, description} : m)} : d
-    )}));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        const material = department?.patientEducationMaterials?.find(m => m.id === materialId);
+        if (material) material.description = description;
+        return hospital;
+    });
   };
   
   const handleSendMessageToPatient = (departmentId: string, patientId: string, content: MessageContent, sender: 'patient' | 'manager') => {
-    createUpdater(h => {
-        const hospital = JSON.parse(JSON.stringify(h));
-        const department = hospital.departments.find((d: Department) => d.id === departmentId);
-        if (!department?.patients) return hospital;
-        const patient = department.patients.find((p: Patient) => p.id === patientId);
-        if (!patient) return hospital;
-        if (!patient.chatHistory) patient.chatHistory = [];
-        patient.chatHistory.push({ id: Date.now().toString(), sender, timestamp: new Date().toISOString(), ...content });
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
+        const department = hospital.departments.find(d => d.id === departmentId);
+        const patient = department?.patients?.find(p => p.id === patientId);
+        if (patient) {
+            if (!patient.chatHistory) patient.chatHistory = [];
+            patient.chatHistory.push({ id: Date.now().toString(), sender, timestamp: new Date().toISOString(), ...content });
+        }
         return hospital;
     });
   };
 
   const handleSendMessageToAdmin = (hospitalId: string, content: MessageContent, sender: 'hospital' | 'admin') => {
-    const hospitalToUpdate = hospitals.find(h => h.id === hospitalId);
-    if (!hospitalToUpdate) return;
-    const hospitalCopy = JSON.parse(JSON.stringify(hospitalToUpdate));
-    if (!hospitalCopy.adminMessages) hospitalCopy.adminMessages = [];
-    hospitalCopy.adminMessages.push({ id: Date.now().toString(), sender, timestamp: new Date().toISOString(), ...content });
-    db.upsertHospital(hospitalCopy);
-    setHospitals(hospitals.map(h => h.id === hospitalId ? hospitalCopy : h));
+    updateAndSyncHospital(hospitalId, hospital => {
+        if (!hospital.adminMessages) hospital.adminMessages = [];
+        hospital.adminMessages.push({ id: Date.now().toString(), sender, timestamp: new Date().toISOString(), ...content });
+        return hospital;
+    });
   };
   
   const handleUpdateNeedsAssessmentTopics = (month: string, topics: NeedsAssessmentTopic[]) => {
-    createUpdater(h => {
-        const hospital = JSON.parse(JSON.stringify(h));
+    if (!selectedHospitalId) return;
+    updateAndSyncHospital(selectedHospitalId, hospital => {
         if (!hospital.needsAssessments) hospital.needsAssessments = [];
-        const assessmentIndex = hospital.needsAssessments.findIndex((na: MonthlyNeedsAssessment) => na.month === month && na.year === activeYear);
+        const assessmentIndex = hospital.needsAssessments.findIndex(na => na.month === month && na.year === activeYear);
         if (assessmentIndex > -1) {
             hospital.needsAssessments[assessmentIndex].topics = topics;
         } else {
@@ -576,21 +706,21 @@ const App: React.FC = () => {
   };
 
   const handleSubmitNeedsAssessmentResponse = (departmentId: string, staffId: string, month: string, year: number, responses: Map<string, string>) => {
-      createUpdater(h => {
-          const hospital = JSON.parse(JSON.stringify(h));
-          const monthlyAssessment = hospital.needsAssessments?.find((na: MonthlyNeedsAssessment) => na.month === month && na.year === year);
-          const staffMember = hospital.departments.find((d: Department) => d.id === departmentId)?.staff.find((s: StaffMember) => s.id === staffId);
-          if (!monthlyAssessment || !staffMember) return hospital;
-
-          responses.forEach((response, topicId) => {
-              const topic = monthlyAssessment.topics.find((t: NeedsAssessmentTopic) => t.id === topicId);
-              if (topic) {
-                  const responseIndex = topic.responses.findIndex(r => r.staffId === staffId);
-                  const newResponse = { staffId, staffName: staffMember.name, response };
-                  if (responseIndex > -1) topic.responses[responseIndex] = newResponse;
-                  else topic.responses.push(newResponse);
-              }
-          });
+    if (!selectedHospitalId) return;
+      updateAndSyncHospital(selectedHospitalId, hospital => {
+          const monthlyAssessment = hospital.needsAssessments?.find(na => na.month === month && na.year === year);
+          const staffMember = hospital.departments.find(d => d.id === departmentId)?.staff.find(s => s.id === staffId);
+          if (monthlyAssessment && staffMember) {
+            responses.forEach((response, topicId) => {
+                const topic = monthlyAssessment.topics.find(t => t.id === topicId);
+                if (topic) {
+                    const responseIndex = topic.responses.findIndex(r => r.staffId === staffId);
+                    const newResponse = { staffId, staffName: staffMember.name, response };
+                    if (responseIndex > -1) topic.responses[responseIndex] = newResponse;
+                    else topic.responses.push(newResponse);
+                }
+            });
+          }
           return hospital;
       });
   };
@@ -598,7 +728,10 @@ const App: React.FC = () => {
   const handleResetHospital = (supervisorNationalId: string, supervisorPassword: string) => {
       const hospital = findHospital(selectedHospitalId);
       if (hospital && hospital.supervisorNationalId === supervisorNationalId && hospital.supervisorPassword === supervisorPassword) {
-          createUpdater(h => ({ ...h, departments: [] }));
+          updateAndSyncHospital(hospital.id, h => {
+              h.departments = [];
+              return h;
+          });
           return true;
       }
       return false;
@@ -634,7 +767,6 @@ const App: React.FC = () => {
             case UserRole.Patient:
               handleSelectHospital(user.hospitalId!);
               setSelectedDepartmentId(user.departmentId!);
-              // Find patient record to pass to view
               const dept = findHospital(user.hospitalId!)?.departments.find(d => d.id === user.departmentId!);
               const patient = dept?.patients?.find(p => p.id === user.patientId!);
               if(patient) {
@@ -657,17 +789,24 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (isLoading) {
-        return <div className="h-screen w-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900"><div className="text-center"><p className="text-xl font-semibold text-slate-700 dark:text-slate-300">در حال بارگذاری و همگام سازی اطلاعات...</p></div></div>;
+        return <div className="h-screen w-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900"><div className="text-center"><p className="text-xl font-semibold text-slate-700 dark:text-slate-300">در حال بارگذاری و همگام‌سازی اطلاعات...</p></div></div>;
     }
 
+    const renderUnauthorized = () => {
+        handleLogout();
+        return <WelcomeScreen onEnter={() => setIsLoginModalOpen(true)} />;
+    };
+
     if (appScreen === AppScreen.Welcome) {
-      return <WelcomeScreen onEnter={() => setAppScreen(AppScreen.HospitalList)} />;
+      return <WelcomeScreen onEnter={() => setIsLoginModalOpen(true)} />;
+    }
+    
+    if (!loggedInUser) {
+        return renderUnauthorized();
     }
 
     if (appScreen === AppScreen.HospitalList) {
-      if (loggedInUser?.role !== UserRole.Admin) {
-        return <WelcomeScreen onEnter={() => setIsLoginModalOpen(true)} />;
-      }
+      if (loggedInUser.role !== UserRole.Admin) return renderUnauthorized();
       return <HospitalList
         hospitals={hospitals}
         onAddHospital={handleAddHospital}
@@ -684,17 +823,15 @@ const App: React.FC = () => {
     const selectedDepartment = findDepartment(selectedHospital, selectedDepartmentId);
     const selectedStaffMember = findStaffMember(selectedDepartment, selectedStaffId);
 
-    if (!selectedHospital && appScreen === AppScreen.MainApp && loggedInUser?.role !== UserRole.Patient) {
+    if (!selectedHospital && appScreen === AppScreen.MainApp && loggedInUser.role !== UserRole.Patient) {
       return <div>Hospital not found.</div>;
     }
-    
-    // For patient portal, we need to find patient data differently
-    if (currentView === View.PatientPortal && loggedInUser?.role === UserRole.Patient) {
+
+    if (currentView === View.PatientPortal) {
+        if (loggedInUser.role !== UserRole.Patient) return renderUnauthorized();
         const patientHospital = findHospital(loggedInUser.hospitalId!);
         const patientDepartment = findDepartment(patientHospital, loggedInUser.departmentId!);
-        // FIX: Look for patient in `patients` array instead of `staff` array.
         const patientSelf = patientDepartment?.patients?.find(p => p.id === loggedInUser.patientId!);
-        
         if (patientDepartment && patientSelf) {
             return <PatientPortalView
                 department={patientDepartment}
@@ -702,13 +839,14 @@ const App: React.FC = () => {
                 onSendMessage={(content) => handleSendMessageToPatient(patientDepartment.id, patientSelf.id, content, 'patient')}
             />
         }
+        return <div>Patient data not found.</div>;
     }
-
 
     if (!selectedHospital) return <div>Hospital not found error.</div>;
 
     switch (currentView) {
       case View.DepartmentList:
+        if (loggedInUser.role !== UserRole.Admin && loggedInUser.role !== UserRole.Supervisor) return renderUnauthorized();
         return <DepartmentList
           departments={selectedHospital.departments}
           hospitalName={selectedHospital.name}
@@ -726,6 +864,7 @@ const App: React.FC = () => {
           userRole={loggedInUser!.role}
         />;
       case View.DepartmentView:
+        if (![UserRole.Admin, UserRole.Supervisor, UserRole.Manager].includes(loggedInUser.role)) return renderUnauthorized();
         if (!selectedDepartment) return <div>Department not found.</div>;
         return <DepartmentView
           department={selectedDepartment}
@@ -745,6 +884,7 @@ const App: React.FC = () => {
           activeYear={activeYear}
         />;
       case View.StaffMemberView:
+        if (![UserRole.Admin, UserRole.Supervisor, UserRole.Manager, UserRole.Staff].includes(loggedInUser.role)) return renderUnauthorized();
         if (!selectedDepartment || !selectedStaffMember) return <div>Staff not found.</div>;
         return <StaffMemberView
           department={selectedDepartment}
@@ -766,6 +906,7 @@ const App: React.FC = () => {
           onYearChange={setActiveYear}
         />;
       case View.ChecklistManager:
+        if (![UserRole.Admin, UserRole.Supervisor, UserRole.Manager].includes(loggedInUser.role)) return renderUnauthorized();
         return <ChecklistManager
           templates={selectedHospital.checklistTemplates || []}
           onAddOrUpdate={handleAddOrUpdateChecklistTemplate}
@@ -773,6 +914,7 @@ const App: React.FC = () => {
           onBack={handleBack}
         />
       case View.ExamManager:
+         if (![UserRole.Admin, UserRole.Supervisor, UserRole.Manager].includes(loggedInUser.role)) return renderUnauthorized();
         return <ExamManager
           templates={selectedHospital.examTemplates || []}
           onAddOrUpdate={handleAddOrUpdateExamTemplate}
@@ -780,6 +922,7 @@ const App: React.FC = () => {
           onBack={handleBack}
         />
       case View.TrainingManager:
+        if (![UserRole.Admin, UserRole.Supervisor, UserRole.Manager].includes(loggedInUser.role)) return renderUnauthorized();
         return <TrainingManager
           monthlyTrainings={selectedHospital.trainingMaterials || []}
           onAddMaterial={handleAddTrainingMaterial}
@@ -788,6 +931,7 @@ const App: React.FC = () => {
           onBack={handleBack}
         />
       case View.AccreditationManager:
+        if (loggedInUser.role !== UserRole.Admin && loggedInUser.role !== UserRole.Supervisor) return renderUnauthorized();
         return <AccreditationManager
           materials={selectedHospital.accreditationMaterials || []}
           onAddMaterial={handleAddAccreditationMaterial}
@@ -796,6 +940,7 @@ const App: React.FC = () => {
           onBack={handleBack}
         />
       case View.NewsBannerManager:
+         if (loggedInUser.role !== UserRole.Admin && loggedInUser.role !== UserRole.Supervisor) return renderUnauthorized();
         return <NewsBannerManager
           banners={selectedHospital.newsBanners || []}
           onAddBanner={handleAddNewsBanner}
@@ -804,6 +949,7 @@ const App: React.FC = () => {
           onBack={handleBack}
         />
       case View.PatientEducationManager:
+        if (![UserRole.Admin, UserRole.Supervisor, UserRole.Manager].includes(loggedInUser.role)) return renderUnauthorized();
         if (!selectedDepartment) return <div>Department not found.</div>;
         return <PatientEducationManager
           department={selectedDepartment}
@@ -816,18 +962,21 @@ const App: React.FC = () => {
           onBack={handleBack}
         />
       case View.HospitalCommunication:
+        if (loggedInUser.role !== UserRole.Supervisor) return renderUnauthorized();
         return <HospitalCommunicationView
           hospital={selectedHospital}
           onSendMessage={(content) => handleSendMessageToAdmin(selectedHospital.id, content, 'hospital')}
           onBack={handleBack}
         />
       case View.AdminCommunication:
+        if (loggedInUser.role !== UserRole.Admin) return renderUnauthorized();
         return <AdminCommunicationView
           hospitals={hospitals}
           onSendMessage={(hospitalId, content) => handleSendMessageToAdmin(hospitalId, content, 'admin')}
           onBack={handleBack}
         />
        case View.NeedsAssessmentManager:
+        if (loggedInUser.role !== UserRole.Admin && loggedInUser.role !== UserRole.Supervisor) return renderUnauthorized();
         return <NeedsAssessmentManager
           hospital={selectedHospital}
           onUpdateTopics={handleUpdateNeedsAssessmentTopics}
@@ -841,24 +990,24 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
-        {appScreen !== AppScreen.Welcome && (
-            <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-sm">
+        {appScreen !== AppScreen.Welcome && loggedInUser?.role !== UserRole.Patient && (
+            <header className="sticky top-0 z-40 bg-gradient-to-r from-purple-600 to-indigo-700 shadow-lg text-white">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
                     <div className="flex items-center gap-4">
                       {(loggedInUser && appScreen === AppScreen.MainApp) && (
-                          <button onClick={handleBack} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                          <button onClick={handleBack} className="p-2 rounded-full hover:bg-white/20 transition-colors">
                             <BackIcon className="w-6 h-6"/>
                           </button>
                       )}
-                      <h1 className="text-xl font-bold">سامانه مهارت</h1>
+                      <h1 className="text-xl font-bold">سامانه بیمارستان من</h1>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="About"><InfoIcon className="w-6 h-6"/></button>
+                        <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="About"><InfoIcon className="w-6 h-6"/></button>
                         {loggedInUser?.role === UserRole.Admin && (
                             <>
-                                <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Save Backup"><SaveIcon className="w-6 h-6"/></button>
-                                <label className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer" aria-label="Load Backup">
+                                <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Save Backup"><SaveIcon className="w-6 h-6"/></button>
+                                <label className="p-2 rounded-full hover:bg-white/20 transition-colors cursor-pointer" aria-label="Load Backup">
                                     <UploadIcon className="w-6 h-6"/>
                                     <input type="file" accept=".json" onChange={handleLoadData} className="hidden"/>
                                 </label>
@@ -867,10 +1016,10 @@ const App: React.FC = () => {
                         {loggedInUser ? (
                             <div className="flex items-center gap-3">
                                 <span className="text-sm font-semibold hidden sm:inline">خوش آمدید، {loggedInUser.name}</span>
-                                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Logout"><LogoutIcon className="w-6 h-6"/></button>
+                                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Logout"><LogoutIcon className="w-6 h-6"/></button>
                             </div>
                         ) : (
-                            <button onClick={() => setIsLoginModalOpen(true)} className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">ورود</button>
+                            <button onClick={() => setIsLoginModalOpen(true)} className="px-4 py-2 text-sm font-semibold bg-white text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors">ورود</button>
                         )}
                     </div>
                 </div>

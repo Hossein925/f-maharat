@@ -8,7 +8,7 @@ import * as db from '../services/db';
 
 interface NewsBannerManagerProps {
   banners: NewsBanner[];
-  onAddBanner: (banner: Omit<NewsBanner, 'id' | 'imageId'>, imageData: string) => void;
+  onAddBanner: (banner: Omit<NewsBanner, 'id' | 'imageId'>, file: File, imageData: string) => void;
   onUpdateBanner: (bannerId: string, title: string, description: string) => void;
   onDeleteBanner: (bannerId: string) => void;
   onBack: () => void;
@@ -86,7 +86,7 @@ const NewsBannerManager: React.FC<NewsBannerManagerProps> = ({ banners, onAddBan
       }
 
       if (pendingFile) { // Adding new
-          onAddBanner({ title: bannerTitle, description: bannerDescription }, pendingFile.dataUrl);
+          onAddBanner({ title: bannerTitle, description: bannerDescription }, pendingFile.file, pendingFile.dataUrl);
       } else if (editingBanner) { // Editing existing
           onUpdateBanner(editingBanner.id, bannerTitle, bannerDescription);
       }
