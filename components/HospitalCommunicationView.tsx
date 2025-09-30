@@ -58,7 +58,6 @@ const HospitalCommunicationView: React.FC<HospitalCommunicationViewProps> = ({ h
       });
       
       const fileId = `chat-file-${Date.now()}`;
-      // FIX: Pass all required properties to addMaterial and use the returned filePath.
       const filePath = await db.addMaterial({ id: fileId, data: dataUrl, name: file.name, type: file.type });
 
       onSendMessage({

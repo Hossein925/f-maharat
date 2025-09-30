@@ -7,20 +7,15 @@ const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'eyJh
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-class AppDatabase extends Dexie {
-  hospitals!: Table<Hospital, string>;
-  files!: Table<{ id: string; data: string }, string>; // For offline file access
+export const db = new Dexie('SkillAssessmentDB_v2') as Dexie & {
+  hospitals: Table<Hospital, string>;
+  files: Table<{ id: string; data: string }, string>;
+};
 
-  constructor() {
-    super('SkillAssessmentDB_v2');
-    this.version(1).stores({
-      hospitals: 'id',
-      files: 'id',
-    });
-  }
-}
-
-export const db = new AppDatabase();
+db.version(1).stores({
+  hospitals: 'id',
+  files: 'id',
+});
 
 // --- Data Sync and Management ---
 

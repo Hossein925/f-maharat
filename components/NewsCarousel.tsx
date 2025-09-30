@@ -84,7 +84,7 @@ const NewsCarousel: React.FC<NewsCarouselProps> = ({ banners }) => {
                         key={currentIndex}
                         src={currentImage}
                         alt={currentBanner.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                     />
                 ) : (
                     <p className="text-slate-500">تصویر در دسترس نیست</p>

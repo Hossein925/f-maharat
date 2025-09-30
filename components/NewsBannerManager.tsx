@@ -133,7 +133,7 @@ const NewsBannerManager: React.FC<NewsBannerManagerProps> = ({ banners, onAddBan
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {banners.map(banner => (
                             <div key={banner.id} className="group relative bg-slate-50 dark:bg-slate-700/50 rounded-lg shadow-sm overflow-hidden">
-                                <img src={bannerImages[banner.imageId] || ''} alt={banner.title} className="w-full aspect-video object-cover bg-slate-200 dark:bg-slate-600" />
+                                <img src={bannerImages[banner.imageId] || ''} alt={banner.title} className="w-full aspect-video object-contain bg-slate-200 dark:bg-slate-600" />
                                 <div className="p-4">
                                     <h4 className="font-bold text-slate-800 dark:text-slate-100 truncate">{banner.title}</h4>
                                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 h-10 overflow-hidden text-ellipsis">

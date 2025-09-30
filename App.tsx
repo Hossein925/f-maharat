@@ -996,19 +996,19 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-4">
                       {(loggedInUser && appScreen === AppScreen.MainApp) && (
                           <button onClick={handleBack} className="p-2 rounded-full hover:bg-white/20 transition-colors">
-                            <BackIcon className="w-6 h-6"/>
+                            <BackIcon className="w-6 h-6 text-cyan-300"/>
                           </button>
                       )}
                       <h1 className="text-xl font-bold">سامانه بیمارستان من</h1>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="About"><InfoIcon className="w-6 h-6"/></button>
+                        <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="About"><InfoIcon className="w-6 h-6 text-cyan-300"/></button>
                         {loggedInUser?.role === UserRole.Admin && (
                             <>
-                                <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Save Backup"><SaveIcon className="w-6 h-6"/></button>
+                                <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Save Backup"><SaveIcon className="w-6 h-6 text-cyan-300"/></button>
                                 <label className="p-2 rounded-full hover:bg-white/20 transition-colors cursor-pointer" aria-label="Load Backup">
-                                    <UploadIcon className="w-6 h-6"/>
+                                    <UploadIcon className="w-6 h-6 text-cyan-300"/>
                                     <input type="file" accept=".json" onChange={handleLoadData} className="hidden"/>
                                 </label>
                             </>
@@ -1016,7 +1016,7 @@ const App: React.FC = () => {
                         {loggedInUser ? (
                             <div className="flex items-center gap-3">
                                 <span className="text-sm font-semibold hidden sm:inline">خوش آمدید، {loggedInUser.name}</span>
-                                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Logout"><LogoutIcon className="w-6 h-6"/></button>
+                                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Logout"><LogoutIcon className="w-6 h-6 text-cyan-300"/></button>
                             </div>
                         ) : (
                             <button onClick={() => setIsLoginModalOpen(true)} className="px-4 py-2 text-sm font-semibold bg-white text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors">ورود</button>
