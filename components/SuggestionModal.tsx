@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { AiIcon } from './icons/AiIcon';
 import { DocumentIcon } from './icons/DocumentIcon';
 
@@ -27,52 +26,38 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
 
     try {
         const contentElement = contentRef.current;
-        const canvas = await html2canvas(contentElement, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: window.getComputedStyle(contentElement).getPropertyValue('background-color'),
-            // Ensure html2canvas captures the full scrollable content
-            height: contentElement.scrollHeight,
-            windowHeight: contentElement.scrollHeight,
-        });
-
-        const imgData = canvas.toDataURL('image/png');
+        
+        // Temporarily adjust styles for better PDF rendering
+        const originalStyles = contentElement.style.cssText;
+        contentElement.style.padding = '20px'; // Add padding for margins
+        contentElement.style.direction = 'rtl';
         
         const pdf = new jsPDF('p', 'pt', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
         
-        const margin = 40; // 40 points margin
+        // Add Vazirmatn font to jsPDF
+        // This is a complex step requiring font files (e.g., .ttf) to be converted to a format jsPDF understands.
+        // For simplicity, we'll rely on the browser's rendering via html2canvas which is now part of the .html method.
+        // A more advanced implementation would load the font directly.
         
-        // Calculate the width of the image in the PDF, respecting margins.
-        const imgWidthOnPdf = pdfWidth - margin * 2;
-        // Calculate the total height of the image in the PDF, maintaining aspect ratio.
-        const totalImgHeightOnPdf = (canvas.height * imgWidthOnPdf) / canvas.width;
-        // The height of the content area on a single PDF page.
-        const pageContentHeight = pdfHeight - margin * 2;
+        await pdf.html(contentElement, {
+            callback: function (doc) {
+                doc.save(filename);
+            },
+            x: 15,
+            y: 15,
+            width: 565, // A4 width in points (595) minus margins (15*2)
+            windowWidth: contentElement.scrollWidth,
+            html2canvas: {
+                scale: 0.75,
+                useCORS: true,
+                letterRendering: true,
+            },
+            autoPaging: 'text',
+        });
         
-        let position = 0;
-        let pageCount = 0;
-        
-        // Loop as long as there is content left to render.
-        while (position < totalImgHeightOnPdf) {
-            // Add a new page for the second page and onwards.
-            if (pageCount > 0) {
-                pdf.addPage();
-            }
+        // Restore original styles
+        contentElement.style.cssText = originalStyles;
 
-            // The y-coordinate is negative to "pull up" the long image strip on each new page.
-            const yPos = -position + margin;
-            
-            // Add the entire image strip, but positioned so that only the correct slice is visible on the current page.
-            pdf.addImage(imgData, 'PNG', margin, yPos, imgWidthOnPdf, totalImgHeightOnPdf);
-            
-            // Move the position marker down by the height of one page's content area.
-            position += pageContentHeight;
-            pageCount++;
-        }
-
-        pdf.save(filename);
     } catch (error) {
         console.error("Error generating PDF:", error);
         alert("خطایی در ساخت فایل PDF رخ داد.");
@@ -87,8 +72,10 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
     const staffName = title.replace('برنامه پیشنهادی برای ', '');
     const filename = `برنامه-بهبود-${staffName.replace(/ /g, '_')}.doc`;
     
+    // Get the innerHTML of the formatted content
     const contentHtml = contentRef.current.querySelector('.prose')?.innerHTML || '';
 
+    // Create the full HTML structure for the Word document
     const sourceHTML = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' 
             xmlns:w='urn:schemas-microsoft-com:office:word' 
@@ -115,6 +102,9 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
           div.WordSection1 {
             page: WordSection1;
           }
+          strong { font-weight: bold; }
+          blockquote { border-right: 4px solid #ccc; padding-right: 10px; margin-right: 0; font-style: italic; color: #555; }
+          hr { border-top: 1px solid #ccc; }
         </style>
       </head>
       <body>
@@ -125,6 +115,7 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
       </body>
       </html>`;
 
+    // Create a Blob and trigger download
     const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
     const fileDownload = document.createElement("a");
     document.body.appendChild(fileDownload);
@@ -164,7 +155,7 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
             </svg>
           </button>
         </div>
-        <div ref={contentRef} className="p-6 overflow-y-auto flex-grow bg-white dark:bg-slate-800">
+        <div className="p-6 overflow-y-auto flex-grow bg-white dark:bg-slate-800">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full">
               <svg className="animate-spin h-12 w-12 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -174,7 +165,9 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
               <p className="mt-4 text-slate-500">در حال آماده سازی برنامه پیشنهادی...</p>
             </div>
           ) : (
-            <div className="prose prose-slate dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formatContent(content) }}></div>
+            <div ref={contentRef} className="bg-white dark:bg-slate-800">
+                <div className="prose prose-slate dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formatContent(content) }}></div>
+            </div>
           )}
         </div>
         {!isLoading && content && (
@@ -184,7 +177,7 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white dark:bg-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600"
                 >
                     <DocumentIcon className="w-5 h-5" />
-                    دانلود Word
+                    دانلود Word (پیشنهادی)
                 </button>
                 <button 
                     onClick={handleDownloadPdf}
