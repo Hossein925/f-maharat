@@ -505,22 +505,35 @@ const App: React.FC = () => {
                       <h1 className="text-xl font-bold">سامانه بیمارستان من</h1>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="About"><InfoIcon className="w-6 h-6 text-cyan-300"/></button>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {loggedInUser && (
+                            <span className="text-sm font-semibold hidden md:inline">خوش آمدید، {loggedInUser.name}</span>
+                        )}
+
+                        <button onClick={() => setIsAboutModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold bg-yellow-400 text-slate-800 rounded-lg shadow-sm hover:bg-yellow-500 transition-colors" aria-label="درباره">
+                            <InfoIcon className="w-5 h-5"/>
+                            <span className="hidden sm:inline">درباره</span>
+                        </button>
+                        
                         {loggedInUser?.role === UserRole.Admin && (
                             <>
-                                <button onClick={handleSaveData} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Save Backup"><SaveIcon className="w-6 h-6 text-cyan-300"/></button>
-                                <label className="p-2 rounded-full hover:bg-white/20 transition-colors cursor-pointer" aria-label="Load Backup">
-                                    <UploadIcon className="w-6 h-6 text-cyan-300"/>
+                                <button onClick={handleSaveData} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-green-500 rounded-lg shadow-sm hover:bg-green-600 transition-colors" aria-label="ذخیره پشتیبان">
+                                    <SaveIcon className="w-5 h-5"/>
+                                    <span className="hidden sm:inline">ذخیره</span>
+                                </button>
+                                <label className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-orange-500 rounded-lg shadow-sm hover:bg-orange-600 transition-colors cursor-pointer" aria-label="بارگذاری پشتیبان">
+                                    <UploadIcon className="w-5 h-5"/>
+                                    <span className="hidden sm:inline">بارگذاری</span>
                                     <input type="file" accept=".json" onChange={handleLoadData} className="hidden"/>
                                 </label>
                             </>
                         )}
+
                         {loggedInUser ? (
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm font-semibold hidden sm:inline">خوش آمدید، {loggedInUser.name}</span>
-                                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-white/20 transition-colors" aria-label="Logout"><LogoutIcon className="w-6 h-6 text-cyan-300"/></button>
-                            </div>
+                            <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-red-500 rounded-lg shadow-sm hover:bg-red-600 transition-colors" aria-label="خروج">
+                                <LogoutIcon className="w-5 h-5"/>
+                                <span className="hidden sm:inline">خروج</span>
+                            </button>
                         ) : (
                             <button onClick={() => setIsLoginModalOpen(true)} className="px-4 py-2 text-sm font-semibold bg-white text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors">ورود</button>
                         )}
