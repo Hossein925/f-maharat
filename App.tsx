@@ -97,33 +97,30 @@ const App: React.FC = () => {
   // --- Handlers using the new DB service ---
   
   const handleAddHospital = async (name: string, province: string, city: string, supervisorName: string, supervisorNationalId: string, supervisorPassword: string) => {
-    try {
-        const newHospital: Hospital = {
-          id: Date.now().toString(), name, province, city, supervisorName, supervisorNationalId, supervisorPassword,
-          departments: [],
-        };
-        await db.upsertHospital(newHospital);
-    } catch (error: any) {
+    const newHospital: Hospital = {
+      id: Date.now().toString(), name, province, city, supervisorName, supervisorNationalId, supervisorPassword,
+      departments: [],
+    };
+    const { error } = await db.upsertHospital(newHospital);
+    if (error) {
         console.error("Failed to add hospital:", error);
-        alert(`خطا در افزودن بیمارستان: ${error.message}\n\nلطفاً از فعال بودن Row Level Security (RLS) برای جدول 'hospitals' و وجود یک پالیسی عمومی برای عملیات INSERT اطمینان حاصل کنید.`);
+        alert(`خطا در افزودن بیمارستان: ${error.message}\n\nعلل احتمالی:\n1. پالیسی‌های RLS در Supabase اجازه این عملیات را نمی‌دهند.\n2. ستون‌های مورد نیاز (مانند supervisor_name) در جدول 'hospitals' وجود ندارند.`);
     }
   };
 
   const handleAddDepartment = async (name: string, managerName: string, managerNationalId: string, managerPassword: string, staffCount: number, bedCount: number) => {
     if (!selectedHospitalId) return;
-    try {
-        const newDepartment: Department = { id: Date.now().toString(), name, managerName, managerNationalId, managerPassword, staffCount, bedCount, staff: [] };
-        await db.upsertDepartment(newDepartment, selectedHospitalId);
-    } catch (error: any) {
+    const newDepartment: Department = { id: Date.now().toString(), name, managerName, managerNationalId, managerPassword, staffCount, bedCount, staff: [] };
+    const { error } = await db.upsertDepartment(newDepartment, selectedHospitalId);
+    if (error) {
         alert(`خطا در افزودن بخش: ${error.message}`);
     }
   };
   
   const handleAddStaff = async (departmentId: string, name: string, title: string, nationalId: string, password?: string) => {
-    try {
-        const newStaff: StaffMember = { id: Date.now().toString(), name, title, nationalId, password, assessments: [] };
-        await db.upsertStaff(newStaff, departmentId);
-    } catch (error: any) {
+    const newStaff: StaffMember = { id: Date.now().toString(), name, title, nationalId, password, assessments: [] };
+    const { error } = await db.upsertStaff(newStaff, departmentId);
+    if (error) {
         alert(`خطا در افزودن پرسنل: ${error.message}`);
     }
   };
@@ -131,20 +128,19 @@ const App: React.FC = () => {
   const handleAddOrUpdateAssessment = async (departmentId: string, staffId: string, month: string, year: number, skills: SkillCategory[], template?: Partial<NamedChecklistTemplate>) => {
       const staff = findStaffMember(findDepartment(findHospital(selectedHospitalId), departmentId), staffId);
       if (staff) {
-          try {
-              const existingAssessment = staff.assessments.find(a => a.month === month && a.year === year);
-              const newAssessment: Assessment = {
-                  id: existingAssessment?.id || Date.now().toString(),
-                  month, year, skillCategories: skills,
-                  supervisorMessage: existingAssessment?.supervisorMessage || '',
-                  managerMessage: existingAssessment?.managerMessage || '',
-                  templateId: template?.id,
-                  minScore: template?.minScore,
-                  maxScore: template?.maxScore,
-                  examSubmissions: existingAssessment?.examSubmissions || [],
-              };
-              await db.upsertAssessment(newAssessment, staffId);
-          } catch (error: any) {
+          const existingAssessment = staff.assessments.find(a => a.month === month && a.year === year);
+          const newAssessment: Assessment = {
+              id: existingAssessment?.id || Date.now().toString(),
+              month, year, skillCategories: skills,
+              supervisorMessage: existingAssessment?.supervisorMessage || '',
+              managerMessage: existingAssessment?.managerMessage || '',
+              templateId: template?.id,
+              minScore: template?.minScore,
+              maxScore: template?.maxScore,
+              examSubmissions: existingAssessment?.examSubmissions || [],
+          };
+          const { error } = await db.upsertAssessment(newAssessment, staffId);
+          if (error) {
               alert(`خطا در ذخیره ارزیابی: ${error.message}`);
           }
       }
@@ -153,19 +149,18 @@ const App: React.FC = () => {
   const handleSubmitExam = async (departmentId: string, staffId: string, month: string, year: number, submission: ExamSubmission) => {
       const staff = findStaffMember(findDepartment(findHospital(selectedHospitalId), departmentId), staffId);
       if (staff) {
-          try {
-              let assessment = staff.assessments.find(a => a.month === month && a.year === year);
-              if (!assessment) {
-                  assessment = { id: Date.now().toString(), month, year, skillCategories: [], examSubmissions: [] };
-              }
-              if (!assessment.examSubmissions) assessment.examSubmissions = [];
-              
-              const existingSubIdx = assessment.examSubmissions.findIndex(s => s.examTemplateId === submission.examTemplateId);
-              if (existingSubIdx > -1) assessment.examSubmissions[existingSubIdx] = submission;
-              else assessment.examSubmissions.push(submission);
-              
-              await db.upsertAssessment(assessment, staffId);
-          } catch (error: any) {
+          let assessment = staff.assessments.find(a => a.month === month && a.year === year);
+          if (!assessment) {
+              assessment = { id: Date.now().toString(), month, year, skillCategories: [], examSubmissions: [] };
+          }
+          if (!assessment.examSubmissions) assessment.examSubmissions = [];
+          
+          const existingSubIdx = assessment.examSubmissions.findIndex(s => s.examTemplateId === submission.examTemplateId);
+          if (existingSubIdx > -1) assessment.examSubmissions[existingSubIdx] = submission;
+          else assessment.examSubmissions.push(submission);
+          
+          const { error } = await db.upsertAssessment(assessment, staffId);
+          if (error) {
               alert(`خطا در ثبت آزمون: ${error.message}`);
           }
       }
@@ -176,10 +171,9 @@ const App: React.FC = () => {
         const hospital = findHospital(selectedHospitalId);
         const department = findDepartment(hospital, id);
         if (department) {
-            try {
-                const updatedDepartment = { ...department, ...data };
-                await db.upsertDepartment(updatedDepartment, selectedHospitalId);
-            } catch (error: any) {
+            const updatedDepartment = { ...department, ...data };
+            const { error } = await db.upsertDepartment(updatedDepartment, selectedHospitalId);
+            if (error) {
                 alert(`خطا در به‌روزرسانی بخش: ${error.message}`);
             }
         }
@@ -190,10 +184,9 @@ const App: React.FC = () => {
         const department = findDepartment(hospital, departmentId);
         const staff = findStaffMember(department, staffId);
         if (staff) {
-            try {
-                const updatedStaff = { ...staff, ...data };
-                await db.upsertStaff(updatedStaff, departmentId);
-            } catch (error: any) {
+            const updatedStaff = { ...staff, ...data };
+            const { error } = await db.upsertStaff(updatedStaff, departmentId);
+            if (error) {
                 alert(`خطا در به‌روزرسانی پرسنل: ${error.message}`);
             }
         }
@@ -214,9 +207,8 @@ const App: React.FC = () => {
         if (hospital && hospital.supervisorNationalId === supervisorNationalId && hospital.supervisorPassword === supervisorPassword) {
             if (window.confirm(`آیا مطمئن هستید که می‌خواهید تمام بخش‌های بیمارستان "${hospital.name}" را حذف کنید؟ این عمل غیرقابل بازگشت است.`)) {
                 hospital.departments.forEach(async (dep) => {
-                    try {
-                        await db.deleteDepartment(dep.id);
-                    } catch (error: any) {
+                    const { error } = await db.deleteDepartment(dep.id);
+                    if (error) {
                         alert(`خطا در حذف بخش ${dep.name}: ${error.message}`);
                     }
                 });
@@ -418,16 +410,17 @@ const App: React.FC = () => {
         hospitals={hospitals}
         onAddHospital={handleAddHospital}
         onUpdateHospital={async (id, data) => {
-            try {
-                await db.upsertHospital({ id, ...data });
-            } catch (error: any) {
+            const hospitalToUpdate = findHospital(id);
+            if (!hospitalToUpdate) return;
+            const updatedData = { ...hospitalToUpdate, ...data };
+            const { error } = await db.upsertHospital(updatedData);
+            if (error) {
                 alert(`خطا در به‌روزرسانی بیمارستان: ${error.message}`);
             }
         }}
         onDeleteHospital={async (id) => {
-            try {
-                await db.deleteHospital(id);
-            } catch (error: any) {
+            const { error } = await db.deleteHospital(id);
+            if (error) {
                 alert(`خطا در حذف بیمارستان: ${error.message}`);
             }
         }}
@@ -461,9 +454,8 @@ const App: React.FC = () => {
           onAddDepartment={handleAddDepartment}
           onUpdateDepartment={handleUpdateDepartment}
           onDeleteDepartment={async (id) => {
-              try {
-                  await db.deleteDepartment(id);
-              } catch (error: any) {
+              const { error } = await db.deleteDepartment(id);
+              if (error) {
                   alert(`خطا در حذف بخش: ${error.message}`);
               }
           }}
@@ -485,9 +477,8 @@ const App: React.FC = () => {
           onAddStaff={handleAddStaff}
           onUpdateStaff={handleUpdateStaff}
           onDeleteStaff={async (deptId, staffId) => {
-              try {
-                  await db.deleteStaff(staffId);
-              } catch (error: any) {
+              const { error } = await db.deleteStaff(staffId);
+              if (error) {
                   alert(`خطا در حذف پرسنل: ${error.message}`);
               }
           }}

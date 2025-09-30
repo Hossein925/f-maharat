@@ -50,6 +50,9 @@ const stripNestedArrays = (obj: any): any => {
     const newObj = { ...obj };
     for (const key in newObj) {
         if (Array.isArray(newObj[key])) {
+            // This condition is crucial: only delete keys that represent relational tables.
+            // A simple way to check is if the array contains objects with 'id'.
+            // Simple arrays like string[] (e.g., in exam questions) should be kept.
             if (newObj[key].length > 0 && typeof newObj[key][0] === 'object' && newObj[key][0] !== null && 'id' in newObj[key][0]) {
                 delete newObj[key];
             }
@@ -57,6 +60,7 @@ const stripNestedArrays = (obj: any): any => {
     }
     return newObj;
 };
+
 
 // --- Data Sync and Management ---
 export const syncAndAssembleData = async (): Promise<Hospital[]> => {
@@ -141,42 +145,51 @@ export const syncAndAssembleData = async (): Promise<Hospital[]> => {
 
 // --- Granular CRUD Functions ---
 
-export const upsertHospital = async (hospital: Partial<Hospital>) => {
+export async function upsertHospital(hospital: Partial<Hospital>) {
     const flatData = stripNestedArrays(hospital);
-    const { error } = await supabase.from('hospitals').upsert(keysToSnake(flatData));
-    if (error) throw error;
-};
-export const deleteHospital = async (id: string) => {
+    const snakeData = keysToSnake(flatData);
+    const { data, error } = await supabase.from('hospitals').upsert(snakeData).select().single();
+    return { data: keysToCamel(data), error };
+}
+
+export async function deleteHospital(id: string) {
     const { error } = await supabase.from('hospitals').delete().eq('id', id);
-    if (error) throw error;
-};
+    return { error };
+}
 
-export const upsertDepartment = async (department: Partial<Department>, hospitalId: string) => {
+export async function upsertDepartment(department: Partial<Department>, hospitalId: string) {
     const flatData = stripNestedArrays(department);
-    const { error } = await supabase.from('departments').upsert(keysToSnake({ ...flatData, hospitalId }));
-    if (error) throw error;
-};
-export const deleteDepartment = async (id: string) => {
+    const snakeData = keysToSnake({ ...flatData, hospitalId });
+    const { data, error } = await supabase.from('departments').upsert(snakeData).select().single();
+    return { data: keysToCamel(data), error };
+}
+
+export async function deleteDepartment(id: string) {
     const { error } = await supabase.from('departments').delete().eq('id', id);
-    if (error) throw error;
-};
+    return { error };
+}
 
-export const upsertStaff = async (staff: Partial<StaffMember>, departmentId: string) => {
+export async function upsertStaff(staff: Partial<StaffMember>, departmentId: string) {
     const flatData = stripNestedArrays(staff);
-    const { error } = await supabase.from('staff').upsert(keysToSnake({ ...flatData, departmentId }));
-    if (error) throw error;
-};
-export const deleteStaff = async (id: string) => {
-    const { error } = await supabase.from('staff').delete().eq('id', id);
-    if (error) throw error;
-};
+    const snakeData = keysToSnake({ ...flatData, departmentId });
+    const { data, error } = await supabase.from('staff').upsert(snakeData).select().single();
+    return { data: keysToCamel(data), error };
+}
 
-export const upsertAssessment = async (assessment: Partial<Assessment>, staffId: string) => {
+export async function deleteStaff(id: string) {
+    const { error } = await supabase.from('staff').delete().eq('id', id);
+    return { error };
+}
+
+export async function upsertAssessment(assessment: Partial<Assessment>, staffId: string) {
     const flatData = stripNestedArrays(assessment);
-    const { error } = await supabase.from('assessments').upsert(keysToSnake({ ...flatData, staffId }));
-    if (error) throw error;
-};
+    const snakeData = keysToSnake({ ...flatData, staffId });
+    const { data, error } = await supabase.from('assessments').upsert(snakeData).select().single();
+    return { data: keysToCamel(data), error };
+}
+
 // Add more upsert/delete functions for other types as needed...
+
 
 // --- Auth ---
 export const findUser = (hospitals: Hospital[], nationalId: string, password: string): LoggedInUser | null => {
