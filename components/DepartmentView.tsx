@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Department, StaffMember, SkillCategory, UserRole, NewsBanner, MonthlyWorkLog } from '../types';
@@ -585,6 +586,8 @@ const DepartmentView: React.FC<DepartmentViewProps> = ({
     </>
   );
 
+  const baseButtonClass = "inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2";
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
@@ -593,28 +596,28 @@ const DepartmentView: React.FC<DepartmentViewProps> = ({
             <div className="flex items-center gap-2 flex-wrap justify-end">
                 <button
                     onClick={onManagePatientEducation}
-                    className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                    className={`${baseButtonClass} bg-orange-500 hover:bg-orange-600 focus:ring-orange-400`}
                 >
                     <BookOpenIcon className="w-5 h-5" />
                     آموزش به بیمار
                 </button>
                 <button
                     onClick={onManageTraining}
-                    className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className={`${baseButtonClass} bg-sky-500 hover:bg-sky-600 focus:ring-sky-400`}
                 >
                     <AcademicCapIcon className="w-5 h-5" />
                     آموزش به پرسنل
                 </button>
                 <button
                     onClick={onManageExams}
-                    className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    className={`${baseButtonClass} bg-violet-600 hover:bg-violet-700 focus:ring-violet-500`}
                 >
                     <ClipboardDocumentCheckIcon className="w-5 h-5" />
                     مدیریت آزمون‌ها
                 </button>
                 <button
                     onClick={onManageChecklists}
-                    className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    className={`${baseButtonClass} bg-teal-600 hover:bg-teal-700 focus:ring-teal-500`}
                 >
                     <ChecklistIcon className="w-5 h-5" />
                     مدیریت قالب‌های چک‌لیست

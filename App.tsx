@@ -1,17 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Department, StaffMember, View, SkillCategory, Assessment, Hospital, AppScreen, NamedChecklistTemplate, ExamTemplate, ExamSubmission, LoggedInUser, UserRole, TrainingMaterial, MonthlyTraining, NewsBanner, MonthlyWorkLog, Patient, ChatMessage, AdminMessage, NeedsAssessmentTopic, MonthlyNeedsAssessment } from './types';
-import WelcomeScreen from './components/WelcomeScreen';
-import HospitalList from './components/HospitalList';
-import DepartmentList from './components/DepartmentList';
-import DepartmentView from './components/DepartmentView';
-import StaffMemberView from './components/StaffMemberView';
-import ChecklistManager from './components/ChecklistManager';
-import ExamManager from './components/ExamManager';
-import TrainingManager from './components/TrainingManager';
-import AccreditationManager from './components/AccreditationManager';
-import NewsBannerManager from './components/NewsBannerManager';
-import PatientEducationManager from './components/PatientEducationManager';
-import PatientPortalView from './components/PatientPortalView';
+import LoadingSpinner from './components/LoadingSpinner';
 import AboutModal from './components/AboutModal';
 import LoginModal from './components/LoginModal';
 import { SaveIcon } from './components/icons/SaveIcon';
@@ -20,9 +9,23 @@ import { InfoIcon } from './components/icons/InfoIcon';
 import { LogoutIcon } from './components/icons/LogoutIcon';
 import { BackIcon } from './components/icons/BackIcon';
 import * as db from './services/db';
-import AdminCommunicationView from './components/AdminCommunicationView';
-import HospitalCommunicationView from './components/HospitalCommunicationView';
-import NeedsAssessmentManager from './components/NeedsAssessmentManager';
+
+const WelcomeScreen = React.lazy(() => import('./components/WelcomeScreen'));
+const HospitalList = React.lazy(() => import('./components/HospitalList'));
+const DepartmentList = React.lazy(() => import('./components/DepartmentList'));
+const DepartmentView = React.lazy(() => import('./components/DepartmentView'));
+const StaffMemberView = React.lazy(() => import('./components/StaffMemberView'));
+const ChecklistManager = React.lazy(() => import('./components/ChecklistManager'));
+const ExamManager = React.lazy(() => import('./components/ExamManager'));
+const TrainingManager = React.lazy(() => import('./components/TrainingManager'));
+const AccreditationManager = React.lazy(() => import('./components/AccreditationManager'));
+const NewsBannerManager = React.lazy(() => import('./components/NewsBannerManager'));
+const PatientEducationManager = React.lazy(() => import('./components/PatientEducationManager'));
+const PatientPortalView = React.lazy(() => import('./components/PatientPortalView'));
+const AdminCommunicationView = React.lazy(() => import('./components/AdminCommunicationView'));
+const HospitalCommunicationView = React.lazy(() => import('./components/HospitalCommunicationView'));
+const NeedsAssessmentManager = React.lazy(() => import('./components/NeedsAssessmentManager'));
+
 
 const PERSIAN_MONTHS = [
   "فروردین", "اردیبهشت", "خرداد",
@@ -788,7 +791,7 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading && appScreen === AppScreen.Welcome) {
         return <div className="h-screen w-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900"><div className="text-center"><p className="text-xl font-semibold text-slate-700 dark:text-slate-300">در حال بارگذاری و همگام‌سازی اطلاعات...</p></div></div>;
     }
 
@@ -1026,7 +1029,9 @@ const App: React.FC = () => {
             </header>
         )}
         <main className={appScreen === AppScreen.Welcome ? '' : 'container mx-auto'}>
-          {renderContent()}
+          <Suspense fallback={<LoadingSpinner />}>
+            {renderContent()}
+          </Suspense>
         </main>
         <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
         <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onLogin={handleLogin} loginError={loginError} />

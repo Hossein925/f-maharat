@@ -182,6 +182,8 @@ const DepartmentList: React.FC<DepartmentListProps> = ({
         }
     };
 
+    const baseButtonClass = "inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2";
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -192,14 +194,14 @@ const DepartmentList: React.FC<DepartmentListProps> = ({
               <>
                  <button
                     onClick={handleOpenArchiveModal}
-                    className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className={`${baseButtonClass} bg-gray-700 hover:bg-gray-800 focus:ring-gray-500`}
                   >
                     <CalendarIcon className="w-5 h-5" />
                     بایگانی و شروع سال جدید
                   </button>
                   <button
                     onClick={onManageNeedsAssessment}
-                    className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                    className={`${baseButtonClass} bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400`}
                   >
                     <ClipboardDocumentListIcon className="w-5 h-5" />
                     نیازسنجی و نظرسنجی
@@ -209,7 +211,7 @@ const DepartmentList: React.FC<DepartmentListProps> = ({
             {userRole === UserRole.Supervisor && (
               <button
                 onClick={onContactAdmin}
-                className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500"
+                className={`${baseButtonClass} bg-purple-600 hover:bg-purple-700 focus:ring-purple-500`}
               >
                 <ChatIcon className="w-5 h-5" />
                 تماس با ادمین کل
@@ -217,14 +219,14 @@ const DepartmentList: React.FC<DepartmentListProps> = ({
             )}
             <button
               onClick={onManageNewsBanners}
-              className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
+              className={`${baseButtonClass} bg-cyan-500 hover:bg-cyan-600 focus:ring-cyan-400`}
             >
               <NewspaperIcon className="w-5 h-5" />
               افزودن بنرهای خبری
             </button>
             <button
               onClick={onManageAccreditation}
-              className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              className={`${baseButtonClass} bg-green-600 hover:bg-green-700 focus:ring-green-500`}
             >
               <ShieldCheckIcon className="w-5 h-5" />
               مطالب اعتباربخشی
@@ -232,7 +234,7 @@ const DepartmentList: React.FC<DepartmentListProps> = ({
             {(userRole === UserRole.Admin || userRole === UserRole.Supervisor) && (
               <button
                 onClick={handleOpenResetModal}
-                className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className={`${baseButtonClass} bg-red-600 hover:bg-red-700 focus:ring-red-500`}
               >
                 <RefreshIcon className="w-5 h-5" />
                 ریست کردن بیمارستان
@@ -240,7 +242,7 @@ const DepartmentList: React.FC<DepartmentListProps> = ({
             )}
             <button
               onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className={`${baseButtonClass} bg-blue-600 hover:bg-blue-700 focus:ring-blue-500`}
             >
               <PlusIcon className="w-5 h-5" />
               افزودن بخش جدید

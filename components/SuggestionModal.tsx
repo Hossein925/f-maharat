@@ -31,6 +31,7 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
             scale: 2,
             useCORS: true,
             backgroundColor: window.getComputedStyle(contentElement).getPropertyValue('background-color'),
+            // Ensure html2canvas captures the full scrollable content
             height: contentElement.scrollHeight,
             windowHeight: contentElement.scrollHeight,
         });
@@ -43,25 +44,32 @@ const SuggestionModal: React.FC<SuggestionModalProps> = ({ isOpen, onClose, titl
         
         const margin = 40; // 40 points margin
         
+        // Calculate the width of the image in the PDF, respecting margins.
         const imgWidthOnPdf = pdfWidth - margin * 2;
-        const canvasRatio = canvas.height / canvas.width;
-        const totalImgHeightOnPdf = imgWidthOnPdf * canvasRatio;
-        
+        // Calculate the total height of the image in the PDF, maintaining aspect ratio.
+        const totalImgHeightOnPdf = (canvas.height * imgWidthOnPdf) / canvas.width;
+        // The height of the content area on a single PDF page.
         const pageContentHeight = pdfHeight - margin * 2;
-
-        let heightLeft = totalImgHeightOnPdf;
+        
         let position = 0;
+        let pageCount = 0;
         
-        // Add the first page
-        pdf.addImage(imgData, 'PNG', margin, margin, imgWidthOnPdf, totalImgHeightOnPdf);
-        heightLeft -= pageContentHeight;
-        
-        // Add subsequent pages if needed
-        while (heightLeft > 0) {
-          position -= pageContentHeight; 
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidthOnPdf, totalImgHeightOnPdf);
-          heightLeft -= pageContentHeight;
+        // Loop as long as there is content left to render.
+        while (position < totalImgHeightOnPdf) {
+            // Add a new page for the second page and onwards.
+            if (pageCount > 0) {
+                pdf.addPage();
+            }
+
+            // The y-coordinate is negative to "pull up" the long image strip on each new page.
+            const yPos = -position + margin;
+            
+            // Add the entire image strip, but positioned so that only the correct slice is visible on the current page.
+            pdf.addImage(imgData, 'PNG', margin, yPos, imgWidthOnPdf, totalImgHeightOnPdf);
+            
+            // Move the position marker down by the height of one page's content area.
+            position += pageContentHeight;
+            pageCount++;
         }
 
         pdf.save(filename);
