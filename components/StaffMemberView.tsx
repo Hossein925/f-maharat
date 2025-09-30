@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Department, StaffMember, SkillCategory, Assessment, NamedChecklistTemplate, ExamTemplate, Question, QuestionType, ExamSubmission, ExamAnswer, UserRole, MonthlyTraining, TrainingMaterial, NewsBanner, MonthlyNeedsAssessment } from '../types';
@@ -811,23 +806,23 @@ const StaffMemberView: React.FC<StaffMemberViewProps> = ({
                     انتخاب ماه
                 </button>
                 {userRole !== UserRole.Staff && assessment && (
-                     <>
-                        <button
-                            onClick={handleEditAssessment}
-                            className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600"
-                        >
-                            <EditIcon className="w-5 h-5"/>
-                            ویرایش ارزیابی
-                        </button>
-                        <button
-                            onClick={handleGetComprehensiveSuggestions}
-                            disabled={!hasWeakSkillsInSelectedMonth}
-                            className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <AiIcon className="w-5 h-5"/>
-                            برنامه بهبود
-                        </button>
-                     </>
+                     <button
+                        onClick={handleEditAssessment}
+                        className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600"
+                    >
+                        <EditIcon className="w-5 h-5"/>
+                        ویرایش ارزیابی
+                    </button>
+                )}
+                {assessment && (
+                    <button
+                        onClick={handleGetComprehensiveSuggestions}
+                        disabled={!hasWeakSkillsInSelectedMonth}
+                        className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <AiIcon className="w-5 h-5"/>
+                        برنامه بهبود
+                    </button>
                 )}
             </div>
         </div>
