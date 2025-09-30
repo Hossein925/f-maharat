@@ -111,12 +111,18 @@ export const syncAndAssembleData = async (): Promise<Hospital[]> => {
 export const upsertHospital = async (hospital: Partial<Hospital>) => {
     const { departments, ...hospitalData } = hospital; // Exclude nested arrays
     const { error } = await supabase.from('hospitals').upsert(hospitalData);
-    if (error) console.error("upsertHospital error:", error);
+    if (error) {
+        console.error("upsertHospital error:", error);
+        throw error;
+    }
 };
 
 export const deleteHospital = async (hospitalId: string) => {
     const { error } = await supabase.from('hospitals').delete().eq('id', hospitalId);
-    if (error) console.error("deleteHospital error:", error);
+    if (error) {
+        console.error("deleteHospital error:", error);
+        throw error;
+    }
 };
 
 // DEPARTMENT
@@ -124,12 +130,18 @@ export const upsertDepartment = async (department: Department, hospitalId: strin
     const { staff, patients, patientEducationMaterials, ...deptData } = department;
     const payload = { ...deptData, hospital_id: hospitalId };
     const { error } = await supabase.from('departments').upsert(payload);
-    if (error) console.error("upsertDepartment error:", error);
+    if (error) {
+        console.error("upsertDepartment error:", error);
+        throw error;
+    }
 };
 
 export const deleteDepartment = async (departmentId: string) => {
     const { error } = await supabase.from('departments').delete().eq('id', departmentId);
-    if (error) console.error("deleteDepartment error:", error);
+    if (error) {
+        console.error("deleteDepartment error:", error);
+        throw error;
+    }
 };
 
 // STAFF
@@ -137,31 +149,46 @@ export const upsertStaff = async (staff: StaffMember, departmentId: string) => {
     const { assessments, workLogs, ...staffData } = staff;
     const payload = { ...staffData, department_id: departmentId };
     const { error } = await supabase.from('staff').upsert(payload);
-    if (error) console.error("upsertStaff error:", error);
+    if (error) {
+        console.error("upsertStaff error:", error);
+        throw error;
+    }
 };
 
 export const deleteStaff = async (staffId: string) => {
     const { error } = await supabase.from('staff').delete().eq('id', staffId);
-    if (error) console.error("deleteStaff error:", error);
+    if (error) {
+        console.error("deleteStaff error:", error);
+        throw error;
+    }
 };
 
 // ASSESSMENT
 export const upsertAssessment = async (assessment: Assessment, staffId: string) => {
     const payload = { ...assessment, staff_id: staffId };
     const { error } = await supabase.from('assessments').upsert(payload);
-    if (error) console.error("upsertAssessment error:", error);
+    if (error) {
+        console.error("upsertAssessment error:", error);
+        throw error;
+    }
 };
 
 // CHECKLIST TEMPLATE
 export const upsertChecklistTemplate = async (template: NamedChecklistTemplate, hospitalId: string) => {
     const payload = { ...template, hospital_id: hospitalId };
     const { error } = await supabase.from('checklist_templates').upsert(payload);
-    if (error) console.error("upsertChecklistTemplate error:", error);
+    if (error) {
+        console.error("upsertChecklistTemplate error:", error);
+        throw error;
+    }
 }
 
 export const deleteChecklistTemplate = async (templateId: string) => {
     const { error } = await supabase.from('checklist_templates').delete().eq('id', templateId);
-    if (error) console.error("deleteChecklistTemplate error:", error);
+    if (error) {
+        console.error("deleteChecklistTemplate error:", error);
+        throw error;
+    }
 }
 
 // And so on for every other data type... (Exam, Training, Patient, etc.)

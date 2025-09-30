@@ -97,112 +97,138 @@ const App: React.FC = () => {
   // --- Handlers using the new DB service ---
   
   const handleAddHospital = async (name: string, province: string, city: string, supervisorName: string, supervisorNationalId: string, supervisorPassword: string) => {
-    const newHospital: Hospital = {
-      id: Date.now().toString(), name, province, city, supervisorName, supervisorNationalId, supervisorPassword,
-      departments: [],
-    };
-    await db.upsertHospital(newHospital);
-    // Real-time listener will trigger a refresh
+    try {
+        const newHospital: Hospital = {
+          id: Date.now().toString(), name, province, city, supervisorName, supervisorNationalId, supervisorPassword,
+          departments: [],
+        };
+        await db.upsertHospital(newHospital);
+    } catch (error: any) {
+        console.error("Failed to add hospital:", error);
+        alert(`خطا در افزودن بیمارستان: ${error.message}\n\nلطفاً از فعال بودن Row Level Security (RLS) برای جدول 'hospitals' و وجود یک پالیسی عمومی برای عملیات INSERT اطمینان حاصل کنید.`);
+    }
   };
 
-  const handleAddDepartment = (name: string, managerName: string, managerNationalId: string, managerPassword: string, staffCount: number, bedCount: number) => {
+  const handleAddDepartment = async (name: string, managerName: string, managerNationalId: string, managerPassword: string, staffCount: number, bedCount: number) => {
     if (!selectedHospitalId) return;
-    const newDepartment: Department = { id: Date.now().toString(), name, managerName, managerNationalId, managerPassword, staffCount, bedCount, staff: [] };
-    db.upsertDepartment(newDepartment, selectedHospitalId);
+    try {
+        const newDepartment: Department = { id: Date.now().toString(), name, managerName, managerNationalId, managerPassword, staffCount, bedCount, staff: [] };
+        await db.upsertDepartment(newDepartment, selectedHospitalId);
+    } catch (error: any) {
+        alert(`خطا در افزودن بخش: ${error.message}`);
+    }
   };
   
-  const handleAddStaff = (departmentId: string, name: string, title: string, nationalId: string, password?: string) => {
-    const newStaff: StaffMember = { id: Date.now().toString(), name, title, nationalId, password, assessments: [] };
-    db.upsertStaff(newStaff, departmentId);
+  const handleAddStaff = async (departmentId: string, name: string, title: string, nationalId: string, password?: string) => {
+    try {
+        const newStaff: StaffMember = { id: Date.now().toString(), name, title, nationalId, password, assessments: [] };
+        await db.upsertStaff(newStaff, departmentId);
+    } catch (error: any) {
+        alert(`خطا در افزودن پرسنل: ${error.message}`);
+    }
   };
 
-  const handleAddOrUpdateAssessment = (departmentId: string, staffId: string, month: string, year: number, skills: SkillCategory[], template?: Partial<NamedChecklistTemplate>) => {
+  const handleAddOrUpdateAssessment = async (departmentId: string, staffId: string, month: string, year: number, skills: SkillCategory[], template?: Partial<NamedChecklistTemplate>) => {
       const staff = findStaffMember(findDepartment(findHospital(selectedHospitalId), departmentId), staffId);
       if (staff) {
-          const existingAssessment = staff.assessments.find(a => a.month === month && a.year === year);
-          const newAssessment: Assessment = {
-              id: existingAssessment?.id || Date.now().toString(),
-              month, year, skillCategories: skills,
-              supervisorMessage: existingAssessment?.supervisorMessage || '',
-              managerMessage: existingAssessment?.managerMessage || '',
-              templateId: template?.id,
-              minScore: template?.minScore,
-              maxScore: template?.maxScore,
-              examSubmissions: existingAssessment?.examSubmissions || [],
-          };
-          db.upsertAssessment(newAssessment, staffId);
-      }
-  };
-
-  const handleSubmitExam = (departmentId: string, staffId: string, month: string, year: number, submission: ExamSubmission) => {
-      const staff = findStaffMember(findDepartment(findHospital(selectedHospitalId), departmentId), staffId);
-      if (staff) {
-          let assessment = staff.assessments.find(a => a.month === month && a.year === year);
-          if (!assessment) {
-              assessment = { id: Date.now().toString(), month, year, skillCategories: [], examSubmissions: [] };
+          try {
+              const existingAssessment = staff.assessments.find(a => a.month === month && a.year === year);
+              const newAssessment: Assessment = {
+                  id: existingAssessment?.id || Date.now().toString(),
+                  month, year, skillCategories: skills,
+                  supervisorMessage: existingAssessment?.supervisorMessage || '',
+                  managerMessage: existingAssessment?.managerMessage || '',
+                  templateId: template?.id,
+                  minScore: template?.minScore,
+                  maxScore: template?.maxScore,
+                  examSubmissions: existingAssessment?.examSubmissions || [],
+              };
+              await db.upsertAssessment(newAssessment, staffId);
+          } catch (error: any) {
+              alert(`خطا در ذخیره ارزیابی: ${error.message}`);
           }
-          if (!assessment.examSubmissions) assessment.examSubmissions = [];
-          
-          const existingSubIdx = assessment.examSubmissions.findIndex(s => s.examTemplateId === submission.examTemplateId);
-          if (existingSubIdx > -1) assessment.examSubmissions[existingSubIdx] = submission;
-          else assessment.examSubmissions.push(submission);
-          
-          db.upsertAssessment(assessment, staffId);
+      }
+  };
+
+  const handleSubmitExam = async (departmentId: string, staffId: string, month: string, year: number, submission: ExamSubmission) => {
+      const staff = findStaffMember(findDepartment(findHospital(selectedHospitalId), departmentId), staffId);
+      if (staff) {
+          try {
+              let assessment = staff.assessments.find(a => a.month === month && a.year === year);
+              if (!assessment) {
+                  assessment = { id: Date.now().toString(), month, year, skillCategories: [], examSubmissions: [] };
+              }
+              if (!assessment.examSubmissions) assessment.examSubmissions = [];
+              
+              const existingSubIdx = assessment.examSubmissions.findIndex(s => s.examTemplateId === submission.examTemplateId);
+              if (existingSubIdx > -1) assessment.examSubmissions[existingSubIdx] = submission;
+              else assessment.examSubmissions.push(submission);
+              
+              await db.upsertAssessment(assessment, staffId);
+          } catch (error: any) {
+              alert(`خطا در ثبت آزمون: ${error.message}`);
+          }
       }
   };
   
-    // FIX: Add handler to correctly update department by merging with existing data.
-    const handleUpdateDepartment = (id: string, data: Partial<Omit<Department, 'id' | 'staff'>>) => {
+    const handleUpdateDepartment = async (id: string, data: Partial<Omit<Department, 'id' | 'staff'>>) => {
         if (!selectedHospitalId) return;
         const hospital = findHospital(selectedHospitalId);
         const department = findDepartment(hospital, id);
         if (department) {
-            const updatedDepartment = { ...department, ...data };
-            db.upsertDepartment(updatedDepartment, selectedHospitalId);
+            try {
+                const updatedDepartment = { ...department, ...data };
+                await db.upsertDepartment(updatedDepartment, selectedHospitalId);
+            } catch (error: any) {
+                alert(`خطا در به‌روزرسانی بخش: ${error.message}`);
+            }
         }
     };
 
-    // FIX: Add handler to correctly update staff member by merging with existing data.
-    const handleUpdateStaff = (departmentId: string, staffId: string, data: Partial<Omit<StaffMember, 'id' | 'assessments'>>) => {
+    const handleUpdateStaff = async (departmentId: string, staffId: string, data: Partial<Omit<StaffMember, 'id' | 'assessments'>>) => {
         const hospital = findHospital(selectedHospitalId);
         const department = findDepartment(hospital, departmentId);
         const staff = findStaffMember(department, staffId);
         if (staff) {
-            const updatedStaff = { ...staff, ...data };
-            db.upsertStaff(updatedStaff, departmentId);
+            try {
+                const updatedStaff = { ...staff, ...data };
+                await db.upsertStaff(updatedStaff, departmentId);
+            } catch (error: any) {
+                alert(`خطا در به‌روزرسانی پرسنل: ${error.message}`);
+            }
         }
     };
 
-    // FIX: Add placeholder handler for comprehensive import.
     const handleComprehensiveImport = (departmentId: string, data: { [staffName: string]: Map<string, SkillCategory[]> }) => {
         console.warn('Comprehensive import is not fully implemented.', { departmentId, data });
         alert('واردات جامع در این نسخه پیاده‌سازی نشده است.');
     };
     
-    // FIX: Add placeholder handler for work log updates.
     const handleAddOrUpdateWorkLog = (departmentId: string, staffId: string, workLog: MonthlyWorkLog) => {
         console.warn('Add/Update WorkLog is not fully implemented.', { departmentId, staffId, workLog });
         alert('ذخیره کارکرد ماهانه در این نسخه پیاده‌سازی نشده است.');
     };
 
-    // FIX: Add placeholder handler for resetting a hospital.
     const handleResetHospital = (supervisorNationalId: string, supervisorPassword: string): boolean => {
         const hospital = findHospital(selectedHospitalId);
         if (hospital && hospital.supervisorNationalId === supervisorNationalId && hospital.supervisorPassword === supervisorPassword) {
             if (window.confirm(`آیا مطمئن هستید که می‌خواهید تمام بخش‌های بیمارستان "${hospital.name}" را حذف کنید؟ این عمل غیرقابل بازگشت است.`)) {
-                hospital.departments.forEach(dep => db.deleteDepartment(dep.id));
+                hospital.departments.forEach(async (dep) => {
+                    try {
+                        await db.deleteDepartment(dep.id);
+                    } catch (error: any) {
+                        alert(`خطا در حذف بخش ${dep.name}: ${error.message}`);
+                    }
+                });
                 return true;
             }
         }
         return false;
     };
     
-    // FIX: Add placeholder handler for archiving a year's data.
     const handleArchiveYear = (yearToArchive: number) => {
         alert(`عملیات بایگانی سال ${yearToArchive} در این نسخه پیاده‌سازی نشده است.`);
     };
-  // All other handlers will now follow this pattern: find the necessary data, create the payload, and call the specific db service function.
-  // The UI will update automatically via the real-time subscription.
   
   // --- Navigation & Auth (mostly unchanged) ---
    const handleGoToWelcome = () => {
@@ -356,8 +382,6 @@ const App: React.FC = () => {
                       await db.clearAllMaterials();
                       if(filesToLoad) await db.db.files.bulkPut(filesToLoad);
                       
-                      // This part needs adjustment for the new relational model
-                      // For now, we'll just alert and refresh. A more complex import is needed for relational data.
                       alert('واردات کامل داده‌های رابطه‌ای پشتیبانی نمی‌شود. لطفاً پایگاه داده را مستقیماً در Supabase مدیریت کنید.');
                       refreshData();
                   }
@@ -371,7 +395,6 @@ const App: React.FC = () => {
 
 
   const renderContent = () => {
-    // ... (rest of renderContent is largely the same, but the props passed to children are simplified)
     if (isLoading && appScreen === AppScreen.Welcome) {
         return <div className="h-screen w-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900"><div className="text-center"><p className="text-xl font-semibold text-slate-700 dark:text-slate-300">در حال بارگذاری و همگام‌سازی اطلاعات...</p></div></div>;
     }
@@ -394,8 +417,20 @@ const App: React.FC = () => {
       return <HospitalList
         hospitals={hospitals}
         onAddHospital={handleAddHospital}
-        onUpdateHospital={(id, data) => db.upsertHospital({ id, ...data })}
-        onDeleteHospital={db.deleteHospital}
+        onUpdateHospital={async (id, data) => {
+            try {
+                await db.upsertHospital({ id, ...data });
+            } catch (error: any) {
+                alert(`خطا در به‌روزرسانی بیمارستان: ${error.message}`);
+            }
+        }}
+        onDeleteHospital={async (id) => {
+            try {
+                await db.deleteHospital(id);
+            } catch (error: any) {
+                alert(`خطا در حذف بیمارستان: ${error.message}`);
+            }
+        }}
         onSelectHospital={handleSelectHospital}
         onGoToWelcome={handleGoToWelcome}
         userRole={loggedInUser.role}
@@ -420,23 +455,25 @@ const App: React.FC = () => {
 
     switch (currentView) {
       case View.DepartmentList:
-        // ... pass simplified props
         return <DepartmentList
           departments={selectedHospital.departments}
           hospitalName={selectedHospital.name}
           onAddDepartment={handleAddDepartment}
-          // FIX: Pass the correct handler for updating departments
           onUpdateDepartment={handleUpdateDepartment}
-          onDeleteDepartment={db.deleteDepartment}
+          onDeleteDepartment={async (id) => {
+              try {
+                  await db.deleteDepartment(id);
+              } catch (error: any) {
+                  alert(`خطا در حذف بخش: ${error.message}`);
+              }
+          }}
           onSelectDepartment={handleSelectDepartment}
           onBack={handleBack}
           onManageAccreditation={() => setCurrentView(View.AccreditationManager)}
           onManageNewsBanners={() => setCurrentView(View.NewsBannerManager)}
           onManageNeedsAssessment={() => setCurrentView(View.NeedsAssessmentManager)}
-          // FIX: Pass the placeholder handler for resetting hospital data
           onResetHospital={handleResetHospital}
           onContactAdmin={() => setCurrentView(View.HospitalCommunication)}
-          // FIX: Pass the placeholder handler for archiving year data
           onArchiveYear={handleArchiveYear}
           userRole={loggedInUser!.role}
         />;
@@ -445,19 +482,21 @@ const App: React.FC = () => {
         return <DepartmentView
           department={selectedDepartment}
           onBack={handleBack}
-          // FIX: Pass the correct handler for adding staff
           onAddStaff={handleAddStaff}
-          // FIX: Pass the correct handler for updating staff
           onUpdateStaff={handleUpdateStaff}
-          onDeleteStaff={(deptId, staffId) => db.deleteStaff(staffId)}
+          onDeleteStaff={async (deptId, staffId) => {
+              try {
+                  await db.deleteStaff(staffId);
+              } catch (error: any) {
+                  alert(`خطا در حذف پرسنل: ${error.message}`);
+              }
+          }}
           onSelectStaff={handleSelectStaff}
-          // FIX: Pass the placeholder handler for comprehensive import
           onComprehensiveImport={handleComprehensiveImport}
           onManageChecklists={() => setCurrentView(View.ChecklistManager)}
           onManageExams={() => setCurrentView(View.ExamManager)}
           onManageTraining={() => setCurrentView(View.TrainingManager)}
           onManagePatientEducation={() => setCurrentView(View.PatientEducationManager)}
-          // FIX: Pass the placeholder handler for work log updates
           onAddOrUpdateWorkLog={handleAddOrUpdateWorkLog}
           userRole={loggedInUser!.role}
           newsBanners={selectedHospital.newsBanners || []}
